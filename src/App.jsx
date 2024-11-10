@@ -6,7 +6,7 @@ import RestaurantDetails from './Restaurant/RestaurantDetails';
 import AddMeal from './Admin/AddMeal';
 import MealDetails from './Restaurant/MealDetails';
 import OrderStatus from './User/OrderStatus';
-import ManageOrders from './Restaurant/ManageOrders';
+import ManageOrders from './Owner/ManageOrders';
 import Login from './Login/Login';
 import AdminDashboard from './Admin/AdminDashboard';
 import OwnerDashboard from './Owner/OwnerDashboard';
@@ -15,6 +15,7 @@ import UserDashboard from './User/UserDashboard';
 import SignUp from './Login/SignUp';
 import Navbar from './Navigation/Navbar';
 import ModifyMeal from './Owner/ModifyMeal';
+import SearchResults from './Navigation/SearchResults ';
 
 const PrivateRoute = ({ children, role }) => {
   const userRole = localStorage.getItem('role');
@@ -42,6 +43,7 @@ function App() {
         <Route path="/owner/dashboard" element={<PrivateRoute role="restaurant_owner"><OwnerDashboard /></PrivateRoute>} />
         <Route path="/delivery/dashboard" element={<PrivateRoute role="delivery_person"><DeliveryDashboard /></PrivateRoute>} />
         <Route path="/user/dashboard" element={<PrivateRoute role="user"><UserDashboard /></PrivateRoute>} />
+        <Route path="/search" element={<SearchResults />} />
       </Routes>
     </BrowserRouter>
   );

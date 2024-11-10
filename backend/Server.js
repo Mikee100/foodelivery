@@ -318,9 +318,17 @@ app.get('/api/restaurants/:id', (req, res) => {
 
 app.get('/api/restaurants/:id/meals', (req, res) => {
   const { id } = req.params;
-  let sql = 'SELECT * FROM meals WHERE restaurant_id = ?';
+  const sql = `
+    SELECT meals.*, categories.name AS category_name
+    FROM meals
+    LEFT JOIN categories ON meals.category_id = categories.id
+    WHERE meals.restaurant_id = ?
+  `;
   db.query(sql, [id], (err, results) => {
-    if (err) throw err;
+    if (err) {
+      console.error('Error fetching meals:', err);
+      return res.status(500).send('Error fetching meals');
+    }
     res.json(results);
   });
 });
@@ -409,7 +417,6 @@ app.post('/api/orders', (req, res) => {
     res.send({ message: 'Order placed successfully', orderId: result.insertId });
   });
 });
-
 app.get('/api/orders/:id', (req, res) => {
   const { id } = req.params;
   let sql = 'SELECT status FROM orders WHERE id = ?';
@@ -461,6 +468,47 @@ app.put('/api/orders/:id/status', (req, res) => {
     });
   });
 });
+// Fetch delivered orders for a specific restaurant
+app.get('/api/processedorders/processed', (req, res) => {
+  const { restaurantId } = req.query; // Get the restaurantId from the query parameter
+
+  if (!restaurantId) {
+    return res.status(400).send('Restaurant ID is required');
+  }
+
+  const sql = 'SELECT * FROM orders WHERE restaurant_id = ? AND status = "Delivered"';
+  db.query(sql, [restaurantId], (err, result) => {
+    if (err) {
+      console.error('Error fetching delivered orders:', err);
+      return res.status(500).send('Error fetching delivered orders');
+    }
+    res.json(result); // Ensure the response is an array
+  });
+});
+app.post('/api/categories', (req, res) => {
+  const { name, restaurantId } = req.body;
+  const sql = 'INSERT INTO categories (name, restaurant_id) VALUES (?, ?)';
+  db.query(sql, [name, restaurantId], (err, result) => {
+    if (err) {
+      console.error('Error adding category:', err);
+      return res.status(500).send('Error adding category');
+    }
+    res.send({ id: result.insertId, name, restaurantId });
+  });
+});
+
+app.get('/api/restaurants/:restaurantId/categories', (req, res) => {
+  const { restaurantId } = req.params;
+  const sql = 'SELECT * FROM categories WHERE restaurant_id = ?';
+  db.query(sql, [restaurantId], (err, result) => {
+    if (err) {
+      console.error('Error fetching categories:', err);
+      return res.status(500).send('Error fetching categories');
+    }
+    res.send(result);
+  });
+});
+
 
 
 app.post('/api/meals', (req, res) => {
@@ -492,6 +540,18 @@ app.get('/api/orders', (req, res) => {
   db.query(sql, [restaurantId], (err, result) => {
     if (err) throw err;
     res.send(result);
+  });
+});
+app.put('/api/updatemeals/:id', (req, res) => {
+  const { id } = req.params;
+  const { name, image, description, price, category_id, spicy, withFries, withSoda, extraCheese, extraSauce, withSalad, withChilly, withPasta } = req.body;
+  const sql = 'UPDATE meals SET name = ?, image = ?, description = ?, price = ?, category_id = ?, spicy = ?, with_fries = ?, with_soda = ?, extra_cheese = ?, extra_sauce = ?, with_salad = ?, with_chilly = ?, with_pasta = ? WHERE id = ?';
+  db.query(sql, [name, image, description, price, category_id, spicy, withFries, withSoda, extraCheese, extraSauce, withSalad, withChilly, withPasta, id], (err, result) => {
+    if (err) {
+      console.error('Error updating meal:', err);
+      return res.status(500).send('Error updating meal');
+    }
+    res.send({ id, name, image, description, price, category_id, spicy, withFries, withSoda, extraCheese, extraSauce, withSalad, withChilly, withPasta });
   });
 });
 
@@ -640,6 +700,25 @@ app.put('/api/delivery-persons/:id/password', async (req, res) => {
     });
   });
 });
+
+app.get('/api/search', (req, res) => {
+  const { query } = req.query;
+  const sql = `
+    SELECT meals.id, meals.name AS meal_name, meals.description, meals.price, restaurants.name AS restaurant_name
+    FROM meals
+    JOIN restaurants ON meals.restaurant_id = restaurants.id
+    WHERE meals.name LIKE ? OR restaurants.name LIKE ?
+  `;
+  db.query(sql, [`%${query}%`, `%${query}%`], (err, results) => {
+    if (err) {
+      console.error('Error searching for meals:', err);
+      return res.status(500).send('Error searching for meals');
+    }
+    res.json(results);
+  });
+});
+
+
 
 const server = app.listen(port, () => {
   console.log(`Server running on port ${port}`);

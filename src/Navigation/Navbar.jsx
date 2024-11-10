@@ -1,10 +1,10 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import SearchBar from './SearchBar';
 
 export default function Navbar() {
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
-
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
@@ -22,6 +22,7 @@ export default function Navbar() {
             </Link>
           </div>
           <div className="flex items-center space-x-4">
+            {token && <SearchBar />}
             {!token ? (
               <>
                 <Link to="/login" className="text-blue-500 font-bold">

@@ -11,7 +11,6 @@ export default function OrderStatus() {
       try {
         const response = await axios.get(`http://localhost:3000/api/orders/${id}`);
         setOrder(response.data);
-        
       } catch (error) {
         console.error('Error fetching order status:', error);
       }
@@ -19,12 +18,9 @@ export default function OrderStatus() {
 
     fetchOrderStatus();
 
-    // Set up WebSocket connection
     const ws = new WebSocket('ws://localhost:3000');
 
-    ws.onopen = () => {
-      console.log('WebSocket connection established');
-    };
+    ws.onopen = () => console.log('WebSocket connection established');
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
@@ -33,37 +29,59 @@ export default function OrderStatus() {
       }
     };
 
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-    };
+    ws.onerror = (error) => console.error('WebSocket error:', error);
+    ws.onclose = () => console.log('WebSocket connection closed');
 
-    ws.onclose = () => {
-      console.log('WebSocket connection closed');
-    };
-
-    return () => {
-      ws.close();
-    };
+    return () => ws.close();
   }, [id]);
 
-  if (!order) {
-    return <div>Loading...</div>;
-  }
+  if (!order) return <div>Loading...</div>;
 
+  const statusSteps = [
+    { label: 'Order Placed', icon: '🛒' },
+    { label: 'In the Kitchen', icon: '👨‍🍳' },
+    { label: 'Out for Delivery', icon: '🚚' },
+    { label: 'Delivered', icon: '🏠' },
+  ];
 
-  const statusSteps = ['Order Placed', 'In the Kitchen', 'Out for Delivery', 'Delivered'];
+  const currentStepIndex = statusSteps.findIndex(step => step.label === order.status);
 
   return (
-    <div className="min-h-screen bg-gradient-to-r from-green-400 to-blue-500 p-6 flex flex-col items-center">
-      <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-4xl">
-        <h1 className="text-5xl font-extrabold text-center text-gray-800 mb-12">Order Status</h1>
-        <div className="space-y-4">
-         
+    <div className="min-h-screen bg-gradient-to-br from-blue-100 to-green-100 p-6 mt-16 flex flex-col items-center">
+      <div className="bg-gray-50 rounded-lg shadow-2xl w-full max-w-2xl p-8">
+        <h1 className="text-4xl font-bold text-center text-gray-800 mb-10">Order Status</h1>
+
+        <div className="flex flex-col items-center space-y-10 relative">
           {statusSteps.map((step, index) => (
-            <div key={index} className={`p-4 rounded-lg ${order.status >= index ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700'}`}>
-              {step}
+            <div key={index} className="flex items-center space-x-4">
+              <div className={`flex flex-col items-center p-4 rounded-lg shadow ${index <= currentStepIndex ? 'bg-green-100' : 'bg-gray-200'}`}>
+                <span className={`text-5xl ${index <= currentStepIndex ? 'text-green-600' : 'text-gray-400'}`}>
+                  {step.icon}
+                </span>
+                <p className="mt-2 text-lg font-semibold text-gray-700">{step.label}</p>
+              </div>
+
+              {index < statusSteps.length - 1 && (
+                <div className="flex-1 w-1 bg-gray-300 h-20 relative">
+                  <div
+                    className={`absolute top-0 left-0 h-full w-1 transition-all duration-500 ease-in-out ${index < currentStepIndex ? 'bg-green-500' : 'bg-gray-300'}`}
+                    style={{
+                      height: `${index < currentStepIndex ? 100 : index === currentStepIndex ? 50 : 0}%`,
+                    }}
+                  ></div>
+                </div>
+              )}
             </div>
           ))}
+        </div>
+
+        <div className="text-center mt-12">
+          <p className="text-2xl text-gray-700">
+            Current Status:
+            <span className="ml-2 font-bold bg-green-500 text-white py-1 px-3 rounded-lg">
+              {order.status}
+            </span>
+          </p>
         </div>
       </div>
     </div>
