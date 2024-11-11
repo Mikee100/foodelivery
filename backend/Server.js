@@ -65,6 +65,7 @@ app.post('/api/upload', upload.single('image'), (req, res) => {
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 
+
 app.post('/api/mpesa', async (req, res) => {
   const { phoneNumber, amount } = req.body;
 
@@ -341,19 +342,11 @@ app.post('/api/restaurants/:id/meals', (req, res) => {
     if (err) throw err;
     res.send('Meal added...');
   });
+  
 });
-
-app.get('/api/meals/:id', (req, res) => {
-  const { id } = req.params;
-  let sql = 'SELECT * FROM meals WHERE id = ?';
-  db.query(sql, [id], (err, result) => {
-    if (err) throw err;
-    res.json(result[0]);
-  });
-});
-
 app.post('/api/orders', (req, res) => {
   const {
+    userId,
     mealId,
     restaurantId,
     quantity,
@@ -372,8 +365,16 @@ app.post('/api/orders', (req, res) => {
     withPasta,
   } = req.body;
 
+  const generateOrderNumber = () => {
+    return 'ORD' + Math.floor(Math.random() * 1000000000) + Date.now();
+  };
+
+  const orderNumber = generateOrderNumber();
+
   let sql = `
     INSERT INTO orders (
+      order_number,
+      user_id,
       meal_id,
       restaurant_id,
       quantity,
@@ -390,11 +391,14 @@ app.post('/api/orders', (req, res) => {
       with_sauce,
       with_chilly,
       with_pasta,
-      status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      status,
+      date
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
   `;
 
   db.query(sql, [
+    orderNumber,
+    userId,
     mealId,
     restaurantId,
     quantity,
@@ -414,17 +418,19 @@ app.post('/api/orders', (req, res) => {
     0 // Assuming 0 is the default status for a new order
   ], (err, result) => {
     if (err) throw err;
-    res.send({ message: 'Order placed successfully', orderId: result.insertId });
+    res.send({ message: 'Order placed successfully', orderId: result.insertId, orderNumber });
   });
 });
-app.get('/api/orders/:id', (req, res) => {
+app.get('/api/meals/:id', (req, res) => {
   const { id } = req.params;
-  let sql = 'SELECT status FROM orders WHERE id = ?';
+  let sql = 'SELECT * FROM meals WHERE id = ?';
   db.query(sql, [id], (err, result) => {
     if (err) throw err;
     res.json(result[0]);
   });
 });
+
+
 app.put('/api/orders/:id/status', (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
@@ -442,6 +448,14 @@ app.put('/api/orders/:id/status', (req, res) => {
         client.send(JSON.stringify({ orderId: id, status }));
       }
     });
+  });
+});
+app.get('/api/orders/:orderNumber', (req, res) => {
+  const { orderNumber } = req.params;
+  let sql = 'SELECT * FROM orders WHERE order_number = ?';
+  db.query(sql, [orderNumber], (err, result) => {
+    if (err) throw err;
+    res.json(result[0]);
   });
 });
 app.get('/api/restaurants/:restaurantId/orders', (req, res) => {
@@ -512,9 +526,9 @@ app.get('/api/restaurants/:restaurantId/categories', (req, res) => {
 
 
 app.post('/api/meals', (req, res) => {
-  const { name, image, description, price, restaurant_id } = req.body;
-  let sql = 'INSERT INTO meals (name, image, description, price, restaurant_id) VALUES (?, ?, ?, ?, ?)';
-  db.query(sql, [name, image, description, price, restaurant_id], (err, result) => {
+  const { name, image, description, price, restaurant_id, category_id } = req.body;
+  let sql = 'INSERT INTO meals (name, image, description, price, restaurant_id, category_id) VALUES (?, ?, ?, ?, ?, ?)';
+  db.query(sql, [name, image, description, price, restaurant_id, category_id], (err, result) => {
     if (err) throw err;
     res.send('Meal added successfully');
   });
@@ -536,7 +550,12 @@ app.get('/api/orders', (req, res) => {
     return res.status(400).send('Restaurant ID is required');
   }
 
-  let sql = 'SELECT * FROM orders WHERE restaurant_id = ?';
+  let sql = `
+    SELECT orders.*, meals.name AS meal_name, meals.description AS meal_description
+    FROM orders
+    JOIN meals ON orders.meal_id = meals.id
+    WHERE orders.restaurant_id = ?
+  `;
   db.query(sql, [restaurantId], (err, result) => {
     if (err) throw err;
     res.send(result);
@@ -700,26 +719,57 @@ app.put('/api/delivery-persons/:id/password', async (req, res) => {
     });
   });
 });
-
 app.get('/api/search', (req, res) => {
-  const { query } = req.query;
-  const sql = `
-    SELECT meals.id, meals.name AS meal_name, meals.description, meals.price, restaurants.name AS restaurant_name
-    FROM meals
-    JOIN restaurants ON meals.restaurant_id = restaurants.id
-    WHERE meals.name LIKE ? OR restaurants.name LIKE ?
-  `;
-  db.query(sql, [`%${query}%`, `%${query}%`], (err, results) => {
+  const { query, filter } = req.query;
+  let sql;
+  if (filter === 'restaurants') {
+    sql = `
+      SELECT restaurants.id AS restaurant_id, restaurants.name AS restaurant_name, restaurants.image
+      FROM restaurants
+      WHERE restaurants.name LIKE ?
+    `;
+  } else {
+    sql = `
+      SELECT meals.id AS meal_id, meals.name AS meal_name, meals.description, meals.price, meals.image, meals.restaurant_id, restaurants.name AS restaurant_name, restaurants.image AS restaurant_image
+      FROM meals
+      JOIN restaurants ON meals.restaurant_id = restaurants.id
+      WHERE meals.name LIKE ?
+    `;
+  }
+  db.query(sql, [`%${query}%`], (err, results) => {
     if (err) {
-      console.error('Error searching for meals:', err);
-      return res.status(500).send('Error searching for meals');
+      console.error('Error searching for meals and restaurants:', err);
+      return res.status(500).send('Error searching for meals and restaurants');
     }
     res.json(results);
   });
 });
 
 
+// Endpoint to fetch user details
+app.get('/api/users/:userId', (req, res) => {
+  const { userId } = req.params;
+  let sql = 'SELECT * FROM users WHERE id = ?';
+  db.query(sql, [userId], (err, result) => {
+    if (err) throw err;
+    res.json(result[0]);
+  });
+});
 
+// Endpoint to fetch user orders
+app.get('/api/users/:userId/orders', (req, res) => {
+  const { userId } = req.params;
+  let sql = `
+    SELECT orders.*, meals.name AS meal_name
+    FROM orders
+    JOIN meals ON orders.meal_id = meals.id
+    WHERE orders.user_id = ?
+  `;
+  db.query(sql, [userId], (err, result) => {
+    if (err) throw err;
+    res.json(result);
+  });
+});
 const server = app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });

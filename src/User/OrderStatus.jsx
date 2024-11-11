@@ -3,16 +3,21 @@ import { useParams } from 'react-router-dom';
 import axios from 'axios';
 
 export default function OrderStatus() {
-  const { id } = useParams();
-  const [order, setOrder] = useState();
+  const { orderNumber } = useParams();
+  const [order, setOrder] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchOrderStatus = async () => {
       try {
-        const response = await axios.get(`http://localhost:3000/api/orders/${id}`);
+        const response = await axios.get(`http://localhost:3000/api/orders/${orderNumber}`);
         setOrder(response.data);
       } catch (error) {
         console.error('Error fetching order status:', error);
+        setError('Error fetching order status');
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -24,7 +29,7 @@ export default function OrderStatus() {
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      if (data.orderId === id) {
+      if (data.orderNumber === orderNumber) {
         setOrder((prevOrder) => ({ ...prevOrder, status: data.status }));
       }
     };
@@ -33,9 +38,11 @@ export default function OrderStatus() {
     ws.onclose = () => console.log('WebSocket connection closed');
 
     return () => ws.close();
-  }, [id]);
+  }, [orderNumber]);
 
-  if (!order) return <div>Loading...</div>;
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>{error}</div>;
+  if (!order) return <div>Order not found</div>;
 
   const statusSteps = [
     { label: 'Order Placed', icon: '🛒' },

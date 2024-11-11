@@ -9,6 +9,8 @@ export default function RestaurantDetails() {
   const [meals, setMeals] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const placeholderImage = 'https://via.placeholder.com/150'; // Placeholder image URL
+
   useEffect(() => {
     const fetchRestaurantDetails = async () => {
       try {
@@ -62,7 +64,7 @@ export default function RestaurantDetails() {
       <div className="relative w-full h-screen bg-gray-800">
         {/* Background Image */}
         <img
-          src={restaurant.image}
+          src={restaurant.image || placeholderImage}
           alt={restaurant.name}
           className="absolute inset-0 w-full h-full object-cover opacity-80"
         />
@@ -99,28 +101,30 @@ export default function RestaurantDetails() {
       {/* Meals Section */}
       <div className="container mx-auto max-w-6xl mt-12 px-4">
         <h2 className="text-4xl font-bold text-gray-800 mb-6 text-center">Available Meals</h2>
-
         {Object.keys(meals).map((category) => (
-          <div key={category} className="mb-8">
-            <h3 className="text-3xl font-bold text-gray-800 mb-4">{category}</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-              {meals[category].map((meal) => (
-                <div
-                  key={meal.id}
-                  className="bg-white rounded-lg shadow-2xl overflow-hidden transform transition-transform hover:scale-105 hover:shadow-lg cursor-pointer"
-                  onClick={() => handleMealClick(meal.id)}
-                >
-                  <img src={meal.image} alt={meal.name} className="w-full h-48 object-cover" />
-                  <div className="p-4">
-                    <h3 className="text-3xl font-bold mb-3">{meal.name}</h3>
-                    <p className="text-gray-700 mb-3">{meal.description}</p>
-                    <p className="text-gray-900 font-bold">Ksh {meal.price}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+  <div key={category} className="mb-8">
+    <h3 className="text-3xl font-bold text-gray-800 mb-4">{category}</h3>
+    {/* Divider line below category name */}
+    <hr className="border-t-2 border-gray-300 mb-6" />
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+      {meals[category].map((meal) => (
+        <div
+          key={meal.id}
+          className="bg-white rounded-lg shadow-2xl overflow-hidden transform transition-transform hover:scale-105 hover:shadow-lg cursor-pointer"
+          onClick={() => handleMealClick(meal.id)}
+        >
+          <img src={meal.image} alt={meal.name} className="w-full h-48 object-cover" />
+          <div className="p-4">
+            <h3 className="text-3xl font-bold mb-3">{meal.name}</h3>
+            <p className="text-gray-700 mb-3">{meal.description}</p>
+            <p className="text-gray-900 font-bold">Ksh {meal.price}</p>
           </div>
-        ))}
+        </div>
+      ))}
+    </div>
+  </div>
+))}
+
       </div>
     </div>
   );

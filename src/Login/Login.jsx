@@ -97,6 +97,14 @@ export default function Login() {
             </button>
           </form>
           <div className="mt-6 text-center">
+          <button
+          
+            className="bg-red-500 hover:bg-red-700 text-white font-bold py-3 px-4 rounded focus:outline-none focus:shadow-outline w-full"
+          >
+            Sign in with Google
+          </button>
+        </div>
+          <div className="mt-6 text-center">
             <p className="text-gray-600">
               Don&apos;t have an account?{' '}
               <Link to="/signup" className="text-blue-500 hover:underline font-medium">

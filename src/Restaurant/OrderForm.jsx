@@ -7,6 +7,7 @@ import 'leaflet/dist/leaflet.css';
 
 const OrderForm = ({ meal, totalAmount, handleMpesaPayment, handleStripePayment, phoneNumber, setPhoneNumber }) => {
   const navigate = useNavigate();
+  const userId = localStorage.getItem('userId'); // Get the user ID from local storage
   const [quantity, setQuantity] = useState(1);
   const [isSpicy, setIsSpicy] = useState(false);
   const [addDrink, setAddDrink] = useState(false);
@@ -47,6 +48,7 @@ const OrderForm = ({ meal, totalAmount, handleMpesaPayment, handleStripePayment,
     e.preventDefault();
     setLoading(true);
     const order = {
+      userId, // Include userId in the order object
       mealId: meal.id,
       restaurantId: meal.restaurant_id,
       quantity,
@@ -71,7 +73,7 @@ const OrderForm = ({ meal, totalAmount, handleMpesaPayment, handleStripePayment,
       setLoading(false);
       setSuccessMessage('Order placed successfully');
       setTimeout(() => {
-        navigate(`/order/${response.data.orderId}`);
+        navigate(`/order/${response.data.orderNumber}`);
       }, 2000);
     } catch (error) {
       setLoading(false);
@@ -284,7 +286,7 @@ const OrderForm = ({ meal, totalAmount, handleMpesaPayment, handleStripePayment,
       {loading && (
         <div className="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75">
           <div className="spinner-border animate-spin inline-block w-8 h-8 border-4 rounded-full text-white" role="status">
-            
+            <span className="visually-hidden">Loading...</span>
           </div>
         </div>
       )}
@@ -293,11 +295,6 @@ const OrderForm = ({ meal, totalAmount, handleMpesaPayment, handleStripePayment,
           <div className="bg-white p-6 rounded-lg shadow-lg">
             <h2 className="text-2xl font-bold mb-4">{successMessage}</h2>
           </div>
-        </div>
-      )}
-      {areaName && (
-        <div className="mt-4">
-          <p className="text-gray-700 text-sm font-bold mb-2">Selected Area: {areaName}</p>
         </div>
       )}
     </form>
