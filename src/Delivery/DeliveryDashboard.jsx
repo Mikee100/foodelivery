@@ -12,6 +12,8 @@ export default function DeliveryDashboard() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [activeSection, setActiveSection] = useState('orders');
+  const [error, setError] = useState('');
+
 
   useEffect(() => {
     fetchOrders();
@@ -86,6 +88,16 @@ export default function DeliveryDashboard() {
     }));
   };
 
+  const handleDispatchOrder = async (orderId) => {
+    try {
+      await axios.put(`http://localhost:3000/api/orders/${orderId}/dispatch`);
+      fetchOrders(); // Refresh the orders list after dispatching
+    } catch (error) {
+      console.error('Error dispatching order:', error);
+      setError('Error dispatching order');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 flex">
       <nav className="bg-blue-600 p-4 mt-16 shadow-md w-64">
@@ -129,6 +141,12 @@ export default function DeliveryDashboard() {
                     <p className="mb-2"><strong>Quantity:</strong> {order.quantity}</p>
                     <p className="mb-2"><strong>Pick Up From:</strong> {order.restaurant_name}, {order.restaurant_location}</p>
                     <p className="mb-2"><strong>Deliver To:</strong> {order.address}</p>
+                    <button
+              onClick={() => handleDispatchOrder(order.id)}
+              className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+            >
+              Order Dispatched
+            </button>
                   </div>
                 ))}
               </div>

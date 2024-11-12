@@ -69,11 +69,17 @@ export default function ManageOrders() {
   );
 }
 
+const colorClasses = {
+  yellow: 'bg-yellow-500 hover:bg-yellow-600',
+  orange: 'bg-orange-500 hover:bg-orange-600',
+  green: 'bg-green-500 hover:bg-green-600',
+};
+
 function StatusButton({ label, onClick, color, icon }) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center bg-${color}-500 hover:bg-${color}-600 text-white font-bold py-1 px-2 rounded focus:outline-none focus:shadow-outline transition-colors`}
+      className={`flex items-center ${colorClasses[color]} text-white font-bold py-1 px-2 rounded focus:outline-none focus:shadow-outline transition-colors`}
     >
       {icon} <span className="ml-2">{label}</span>
     </button>

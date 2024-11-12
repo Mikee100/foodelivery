@@ -289,6 +289,22 @@ app.post('/api/admin/addRestaurant', async (req, res) => {
     });
   });
 });
+app.delete('/api/restaurants/:id', (req, res) => {
+  const { id } = req.params;
+
+  // First, delete all related rows in the delivery_persons table
+  let sql = 'DELETE FROM delivery_persons WHERE restaurant_id = ?';
+  db.query(sql, [id], (err, result) => {
+    if (err) throw err;
+
+    // Then, delete the restaurant
+    sql = 'DELETE FROM restaurants WHERE id = ?';
+    db.query(sql, [id], (err, result) => {
+      if (err) throw err;
+      res.send({ message: 'Restaurant deleted successfully' });
+    });
+  });
+});
 
 app.post('/api/restaurants', (req, res) => {
   const { name, email, location, description, image } = req.body;
@@ -654,6 +670,18 @@ app.get('/api/delivery/orders', async (req, res) => {
     console.error('Error fetching orders:', error);
     res.status(500).json({ message: 'Error fetching orders', error: error.message });
   }
+});
+
+app.put('/api/orders/:id/dispatch', (req, res) => {
+  const { id } = req.params;
+  const sql = 'UPDATE orders SET status = ? WHERE id = ?';
+  db.query(sql, ['Delivered', id], (err, result) => {
+    if (err) {
+      console.error('Error updating order status:', err);
+      return res.status(500).json({ message: 'Error updating order status' });
+    }
+    res.json({ message: 'Order dispatched successfully' });
+  });
 });
 
 app.get('/api/restaurants/:restaurantId/delivery-persons', (req, res) => {

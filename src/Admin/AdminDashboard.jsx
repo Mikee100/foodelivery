@@ -11,6 +11,7 @@ export default function AdminDashboard() {
   const [image, setImage] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
     fetchRestaurants();
@@ -50,6 +51,16 @@ export default function AdminDashboard() {
       console.error('There was an error adding the restaurant and user!', error);
     }
   };
+  const handleDeleteRestaurant = async (restaurantId) => {
+    try {
+      await axios.delete(`http://localhost:3000/api/restaurants/${restaurantId}`);
+      setRestaurants(restaurants.filter(restaurant => restaurant.id !== restaurantId));
+      setMessage('Restaurant deleted successfully');
+    } catch (error) {
+      console.error('Error deleting restaurant:', error);
+      setMessage('Error deleting restaurant');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-100 flex">
@@ -72,6 +83,11 @@ export default function AdminDashboard() {
       </nav>
 
       <main className="flex-grow container mt-12 mx-auto p-6">
+      {message && (
+          <div className={`mb-4 p-4 rounded ${message.includes('Error') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+            {message}
+          </div>
+        )}
         {activeSection === 'restaurants' && (
           <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-6xl mt-8">
             <h2 className="text-2xl font-bold mb-4">Restaurants</h2>
@@ -81,7 +97,12 @@ export default function AdminDashboard() {
                 <img src={restaurant.image} alt={restaurant.name} className="w-full h-48 object-cover mb-2" />
                 <p className="mb-2">Location: {restaurant.location}</p>
                 <p className="mb-2">Description: {restaurant.description}</p>
-              
+                <button
+                onClick={() => handleDeleteRestaurant(restaurant.id)}
+                className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+              >
+                Delete
+              </button>
               </div>
             ))}
           </div>
