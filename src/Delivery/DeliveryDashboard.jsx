@@ -30,7 +30,7 @@ export default function DeliveryDashboard() {
     }
     
     try {
-      const response = await axios.get('http://localhost:3000/api/delivery/orders', {
+      const response = await axios.get('http://192.168.181.75:3000/api/delivery/orders', {
         params: { deliveryPersonId, restaurantId },
       });
       setOrders(response.data);
@@ -46,7 +46,7 @@ export default function DeliveryDashboard() {
       return;
     }
     try {
-      const response = await axios.get(`http://localhost:3000/api/delivery-persons/${deliveryPersonId}`);
+      const response = await axios.get(`http://192.168.181.75:3000/api/delivery-persons/${deliveryPersonId}`);
       setDeliveryPerson(response.data);
     } catch (error) {
       console.error('Error fetching delivery person details:', error.response?.data || error.message);
@@ -57,7 +57,7 @@ export default function DeliveryDashboard() {
     e.preventDefault();
     const deliveryPersonId = localStorage.getItem('userId'); // Assuming the user ID is stored in local storage
     try {
-      await axios.put(`http://localhost:3000/api/delivery-persons/${deliveryPersonId}`, deliveryPerson);
+      await axios.put(`http://192.168.181.75:3000/api/delivery-persons/${deliveryPersonId}`, deliveryPerson);
       alert('Details updated successfully');
     } catch (error) {
       console.error('Error updating details:', error.response?.data || error.message);
@@ -68,7 +68,7 @@ export default function DeliveryDashboard() {
     e.preventDefault();
     const deliveryPersonId = localStorage.getItem('userId'); // Assuming the user ID is stored in local storage
     try {
-      await axios.put(`http://localhost:3000/api/delivery-persons/${deliveryPersonId}/password`, {
+      await axios.put(`http://192.168.181.75:3000/api/delivery-persons/${deliveryPersonId}/password`, {
         currentPassword,
         newPassword,
       });
@@ -90,7 +90,7 @@ export default function DeliveryDashboard() {
 
   const handleDispatchOrder = async (orderId) => {
     try {
-      await axios.put(`http://localhost:3000/api/orders/${orderId}/dispatch`);
+      await axios.put(`http://192.168.181.75:3000/api/orders/${orderId}/dispatch`);
       fetchOrders(); // Refresh the orders list after dispatching
     } catch (error) {
       console.error('Error dispatching order:', error);
@@ -134,13 +134,14 @@ export default function DeliveryDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {orders.map((order) => (
                   <div key={order.id} className="bg-white p-6 rounded-lg shadow-md">
-                    <h3 className="text-xl font-bold mb-2">Order #{order.id}</h3>
+                    <h3 className="text-xl font-bold mb-2">Order #{order.order_number}</h3>
                     <p className="mb-2"><strong>Meal:</strong> {order.meal_name}</p>
                     <p className="mb-2"><strong>Description:</strong> {order.meal_description}</p>
                     <img src={order.meal_image} alt={order.meal_name} className="w-full h-48 object-cover mb-2 rounded" />
                     <p className="mb-2"><strong>Quantity:</strong> {order.quantity}</p>
                     <p className="mb-2"><strong>Pick Up From:</strong> {order.restaurant_name}, {order.restaurant_location}</p>
                     <p className="mb-2"><strong>Deliver To:</strong> {order.address}</p>
+                    <p>{order.user_phone}</p>
                     <button
               onClick={() => handleDispatchOrder(order.id)}
               className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"

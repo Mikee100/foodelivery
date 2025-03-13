@@ -18,7 +18,7 @@ export default function ManageCategories() {
     }
 
     try {
-      const response = await axios.get(`http://localhost:3000/api/restaurants/${restaurantId}/categories`);
+      const response = await axios.get(`http://192.168.181.75:3000/api/restaurants/${restaurantId}/categories`);
       setCategories(response.data);
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -29,7 +29,7 @@ export default function ManageCategories() {
     e.preventDefault();
     const restaurantId = localStorage.getItem('restaurantId'); // Get the restaurant ID from local storage
     try {
-      await axios.post('http://localhost:3000/api/categories', {
+      await axios.post('http://192.168.181.75:3000/api/categories', {
         name: categoryName,
         restaurantId,
       }, {

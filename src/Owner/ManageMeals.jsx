@@ -26,7 +26,7 @@ export default function ManageMeals() {
     }
 
     try {
-      const response = await axios.get(`http://localhost:3000/api/restaurants/${restaurantId}/meals`);
+      const response = await axios.get(`http://192.168.181.75:3000/api/restaurants/${restaurantId}/meals`);
       setMeals(response.data);
     } catch (error) {
       console.error('Error fetching meals:', error);
@@ -41,7 +41,7 @@ export default function ManageMeals() {
     }
 
     try {
-      const response = await axios.get(`http://localhost:3000/api/restaurants/${restaurantId}/categories`);
+      const response = await axios.get(`http://192.168.181.75:3000/api/restaurants/${restaurantId}/categories`);
       setCategories(response.data);
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -52,7 +52,7 @@ export default function ManageMeals() {
     e.preventDefault();
     const restaurant_id = localStorage.getItem('restaurantId');
     try {
-      await axios.post('http://localhost:3000/api/meals', {
+      await axios.post('http://192.168.181.75:3000/api/meals', {
         name: mealName,
         image: mealImage,
         description: mealDescription,

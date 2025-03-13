@@ -13,7 +13,7 @@ export default function RestaurantCreation() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('http://localhost:3000/api/admin/addRestaurant', {
+      await axios.post('http://192.168.181.75:3000/api/admin/addRestaurant', {
         name,
         email,
         location,

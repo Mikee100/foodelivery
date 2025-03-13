@@ -69,7 +69,7 @@ const OrderForm = ({ meal, totalAmount, handleMpesaPayment, handleStripePayment,
       withPasta,
     };
     try {
-      const response = await axios.post('http://localhost:3000/api/orders', order);
+      const response = await axios.post('http://192.168.181.75:3000/api/orders', order);
       setLoading(false);
       setSuccessMessage('Order placed successfully');
       setTimeout(() => {

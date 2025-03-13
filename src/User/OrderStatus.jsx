@@ -11,7 +11,7 @@ export default function OrderStatus() {
   useEffect(() => {
     const fetchOrderStatus = async () => {
       try {
-        const response = await axios.get(`http://localhost:3000/api/orders/${orderNumber}`);
+        const response = await axios.get(`http://192.168.181.75:3000/api/orders/${orderNumber}`);
         setOrder(response.data);
       } catch (error) {
         console.error('Error fetching order status:', error);
@@ -23,7 +23,7 @@ export default function OrderStatus() {
 
     fetchOrderStatus();
 
-    const ws = new WebSocket('ws://localhost:3000');
+    const ws = new WebSocket('ws://192.168.181.75:3000');
 
     ws.onopen = () => console.log('WebSocket connection established');
 

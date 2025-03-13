@@ -18,7 +18,7 @@ function MealDetailsComponent() {
   useEffect(() => {
     const fetchMealDetails = async () => {
       try {
-        const response = await axios.get(`http://localhost:3000/api/meals/${id}`);
+        const response = await axios.get(`http://192.168.181.75:3000/api/meals/${id}`);
         setMeal(response.data);
       } catch (error) {
         console.error('Error fetching meal details:', error);
@@ -43,7 +43,7 @@ function MealDetailsComponent() {
 
   const handleMpesaPayment = async () => {
     try {
-      const response = await axios.post('http://localhost:3000/api/mpesa', {
+      const response = await axios.post('http://192.168.181.75:3000/api/mpesa', {
         phoneNumber,
         amount: totalAmount,
       });
@@ -61,7 +61,7 @@ function MealDetailsComponent() {
     const cardElement = elements.getElement(CardElement);
     try {
       const { token } = await stripe.createToken(cardElement);
-      const response = await axios.post('http://localhost:3000/api/stripe', {
+      const response = await axios.post('http://192.168.181.75:3000/api/stripe', {
         amount: totalAmount * 100,
         currency: 'usd',
         source: token.id,

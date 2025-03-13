@@ -14,10 +14,10 @@ export default function RestaurantDetails() {
   useEffect(() => {
     const fetchRestaurantDetails = async () => {
       try {
-        const restaurantResponse = await axios.get(`http://localhost:3000/api/restaurants/${id}`);
+        const restaurantResponse = await axios.get(`http://192.168.181.75:3000/api/restaurants/${id}`);
         setRestaurant(restaurantResponse.data);
 
-        const mealsResponse = await axios.get(`http://localhost:3000/api/restaurants/${id}/meals`);
+        const mealsResponse = await axios.get(`http://192.168.181.75:3000/api/restaurants/${id}/meals`);
         const mealsData = mealsResponse.data;
         const groupedMeals = groupMealsByCategory(mealsData);
         setMeals(groupedMeals);

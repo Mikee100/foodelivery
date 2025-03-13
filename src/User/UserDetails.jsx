@@ -15,7 +15,7 @@ export default function UserDetails() {
 
   const fetchUserDetails = async () => {
     try {
-      const response = await axios.get(`http://localhost:3000/api/users/${userId}`);
+      const response = await axios.get(`http://192.168.181.75:3000/api/users/${userId}`);
       setUser(response.data);
     } catch (error) {
       console.error('Error fetching user details:', error);

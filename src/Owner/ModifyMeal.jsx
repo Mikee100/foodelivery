@@ -38,7 +38,7 @@ const ModifyMeal = () => {
 
   const fetchMealDetails = async () => {
     try {
-      const response = await axios.get(`http://localhost:3000/api/meals/${mealId}`);
+      const response = await axios.get(`http://192.168.181.75:3000/api/meals/${mealId}`);
       const data = response.data;
       setMeal(data);
       setName(data.name);
@@ -67,7 +67,7 @@ const ModifyMeal = () => {
     }
 
     try {
-      const response = await axios.get(`http://localhost:3000/api/restaurants/${restaurantId}/categories`);
+      const response = await axios.get(`http://192.168.181.75:3000/api/restaurants/${restaurantId}/categories`);
       setCategories(response.data);
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -93,7 +93,7 @@ const ModifyMeal = () => {
     };
 
     try {
-      const response = await axios.put(`http://localhost:3000/api/updatemeals/${mealId}`, updatedMeal, {
+      const response = await axios.put(`http://192.168.181.75:3000/api/updatemeals/${mealId}`, updatedMeal, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
       console.log('Response:', response.data); // Debugging log

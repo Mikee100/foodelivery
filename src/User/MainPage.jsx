@@ -10,7 +10,7 @@ export default function MainPage() {
   useEffect(() => {
     const fetchRestaurants = async () => {
       try {
-        const response = await axios.get('http://localhost:3000/api/restaurants');
+        const response = await axios.get('http://192.168.181.75:3000/api/restaurants');
         setRestaurants(response.data);
       } catch (error) {
         console.error('Error fetching restaurants:', error);

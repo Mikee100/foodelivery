@@ -26,7 +26,7 @@ app.use(bodyParser.json());
 app.use(cors());
 
 const db = mysql.createConnection({
-  host: 'localhost',
+  host: '192.168.181.75',
   user: 'root',
   password: '10028mike.',
   database: 'food_delivery'
@@ -44,7 +44,7 @@ const stripe = require('stripe')('sk_test_51P1B7LCXIhVW50LeLXacm9VK72GEVjz5HQ7n1
 
 
 const dbPromise = db.promise();
-// Create WebSocket server
+
 const wss = new WebSocket.Server({ noServer: true });
 
 wss.on('connection', (ws) => {
@@ -57,7 +57,7 @@ app.post('/api/upload', upload.single('image'), (req, res) => {
   if (!req.file) {
     return res.status(400).send('No file uploaded.');
   }
-  const imageUrl = `http://localhost:${port}/uploads/${req.file.filename}`;
+  const imageUrl = `http://192.168.181.75:${port}/uploads/${req.file.filename}`;
   res.send({ imageUrl });
 });
 
@@ -67,26 +67,43 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 
 app.post('/api/mpesa', async (req, res) => {
-  const { phoneNumber, amount } = req.body;
+  let { phoneNumber, amount } = req.body;
 
-  const consumerKey = 'kEcjDPFRW1xcEJflAtezvjDsUjuSpyTKeTHY6WnyvH4hcsO5';
-  const consumerSecret = '0mfWBCGsN3JZCNm3QF6kb3KxxGDyIAZZP1BkLaQoAhH6uogq0cAiRZWr0yqbzFDc';
-  const shortCode = 'N/A';
-  const passkey = 'YOUR_PASSKEY';
-  const timestamp = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, -3);
+  // Load credentials from environment variables
+  const consumerKey = 'JFvBXWMm0yPfiDwTWNPbc2TodFikv8VOBcIhDQ1xbRIBr7TE';
+  const consumerSecret = 'Q16rZBLRjCN1VXaBMmzInA3QpGX0MXidMYY0EUweif6PsvbsUQ8GLBLiqZHaebk9';
+  const shortCode = '174379'; // Your Paybill/Till Number
+  const passkey = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919';
+  const callbackURL ='https://mydomain.com/pat'; // Replace with your callback URL
+
+  if (!consumerKey || !consumerSecret || !shortCode || !passkey || !callbackURL) {
+    return res.status(500).json({ error: "Missing M-Pesa credentials. Check environment variables." });
+  }
+
+    // Convert '07XXXXXXXX' to '2547XXXXXXXX'
+    if (phoneNumber.startsWith("07")) {
+      phoneNumber = "254" + phoneNumber.substring(1);
+    }
+  // Generate timestamp
+  const timestamp = new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 14);
+  
+  // Encode password
   const password = Buffer.from(shortCode + passkey + timestamp).toString('base64');
 
   try {
-    // Get access token
-    const tokenResponse = await axios.get('https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials', {
-      auth: {
-        username: consumerKey,
-        password: consumerSecret,
-      },
-    });
+    // Step 1: Get M-Pesa Access Token
+    const tokenResponse = await axios.get(
+      'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials',
+      {
+        auth: {
+          username: consumerKey,
+          password: consumerSecret,
+        },
+      }
+    );
     const accessToken = tokenResponse.data.access_token;
 
-    // Make payment request
+    // Step 2: Initiate STK Push
     const paymentResponse = await axios.post(
       'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest',
       {
@@ -98,21 +115,22 @@ app.post('/api/mpesa', async (req, res) => {
         PartyA: phoneNumber,
         PartyB: shortCode,
         PhoneNumber: phoneNumber,
-        CallBackURL: 'https://your-callback-url.com/callback',
+        CallBackURL: callbackURL,
         AccountReference: 'FoodDelivery',
         TransactionDesc: 'Payment for food delivery',
       },
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
         },
       }
     );
 
-    res.send(paymentResponse.data);
+    res.status(200).json(paymentResponse.data);
   } catch (error) {
-    console.error('Error processing Mpesa payment:', error);
-    res.status(500).send('Error processing Mpesa payment');
+    console.error('Error processing Mpesa payment:', error.response?.data || error.message);
+    res.status(500).json({ error: 'Failed to process M-Pesa payment' });
   }
 });
 app.post('/api/stripe', async (req, res) => {
@@ -206,7 +224,7 @@ app.post('/api/login', async (req, res) => {
     const token = jwt.sign(
       { id: user.id, role: user.role, restaurant_id: restaurantId, delivery_person_id: deliveryPersonId },
       SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: '10h' }
     );
 
     // Log the generated token to the console for debugging
@@ -591,10 +609,10 @@ app.put('/api/updatemeals/:id', (req, res) => {
 });
 
 
-// Endpoint to create a delivery person and link them to the restaurant
+
 app.post('/api/delivery-persons', async (req, res) => {
   const { name, email, restaurantId } = req.body;
-  const password = 'defaultpassword'; // Set a default password for the delivery person
+  const password = '1234'; // Set a default password for the delivery person
   const hashedPassword = await bcrypt.hash(password, 10);
   const role = 'delivery_person';
 
@@ -640,18 +658,21 @@ app.get('/api/delivery/orders', async (req, res) => {
 
   try {
     const query = `
-      SELECT o.id, 
+      SELECT o.id,
+             o.order_number, 
              m.name AS meal_name, 
              m.description AS meal_description, 
              m.image AS meal_image, 
              o.quantity, 
              o.address,
              r.name AS restaurant_name, 
-             r.location AS restaurant_location
+             r.location AS restaurant_location,
+             u.phone AS user_phone
       FROM orders o
       JOIN meals m ON o.meal_id = m.id
       JOIN restaurants r ON o.restaurant_id = r.id
       JOIN delivery_persons dp ON dp.restaurant_id = o.restaurant_id
+      JOIN users u ON o.user_id = u.id
       WHERE dp.user_id = ? 
         AND o.restaurant_id = ?  
         AND o.status = 'Out for Delivery'`;  // Or another relevant status
@@ -798,8 +819,8 @@ app.get('/api/users/:userId/orders', (req, res) => {
     res.json(result);
   });
 });
-const server = app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+const server = app.listen(port, '192.168.181.75', () => {
+  console.log(`Server running on port http://192.168.181.75:${port}`);
 });
 
 server.on('upgrade', (request, socket, head) => {

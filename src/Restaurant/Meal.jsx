@@ -9,7 +9,7 @@ export default function MealDetails() {
   useEffect(() => {
     const fetchMealDetails = async () => {
       try {
-        const response = await axios.get(`http://localhost:3000/api/meals/${id}`);
+        const response = await axios.get(`http://192.168.181.75:3000/api/meals/${id}`);
         setMeal(response.data);
       } catch (error) {
         console.error('Error fetching meal details:', error);

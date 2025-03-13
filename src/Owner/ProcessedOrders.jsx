@@ -17,7 +17,7 @@ export default function ProcessedOrders() {
     }
 
     try {
-      const response = await axios.get(`http://localhost:3000/api/processedorders/processed?restaurantId=${restaurantId}`);
+      const response = await axios.get(`http://192.168.181.75:3000/api/processedorders/processed?restaurantId=${restaurantId}`);
      
       if (Array.isArray(response.data)) {
         setProcessedOrders(response.data);
