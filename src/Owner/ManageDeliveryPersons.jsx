@@ -19,7 +19,7 @@ export default function ManageDeliveryPersons() {
     }
 
     try {
-      const response = await axios.get(`http://192.168.181.75:3000/api/restaurants/${restaurantId}/delivery-persons`);
+      const response = await axios.get(`http://192.168.158.75:3000/api/restaurants/${restaurantId}/delivery-persons`);
       setDeliveryPersons(response.data);
     } catch (error) {
       console.error('Error fetching delivery persons:', error);
@@ -30,7 +30,7 @@ export default function ManageDeliveryPersons() {
     e.preventDefault();
     const restaurantId = localStorage.getItem('restaurantId'); // Get the restaurant ID from local storage
     try {
-      await axios.post('http://192.168.181.75:3000/api/delivery-persons', {
+      await axios.post('http://192.168.158.75:3000/api/delivery-persons', {
         name: deliveryPersonName,
         email: deliveryPersonEmail,
         restaurantId,

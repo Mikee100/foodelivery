@@ -26,7 +26,7 @@ app.use(bodyParser.json());
 app.use(cors());
 
 const db = mysql.createConnection({
-  host: '192.168.181.75',
+  host: '192.168.158.75',
   user: 'root',
   password: '10028mike.',
   database: 'food_delivery'
@@ -57,7 +57,7 @@ app.post('/api/upload', upload.single('image'), (req, res) => {
   if (!req.file) {
     return res.status(400).send('No file uploaded.');
   }
-  const imageUrl = `http://192.168.181.75:${port}/uploads/${req.file.filename}`;
+  const imageUrl = `http://192.168.158.75:${port}/uploads/${req.file.filename}`;
   res.send({ imageUrl });
 });
 
@@ -69,29 +69,50 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.post('/api/mpesa', async (req, res) => {
   let { phoneNumber, amount } = req.body;
 
-  // Load credentials from environment variables
-  const consumerKey = 'JFvBXWMm0yPfiDwTWNPbc2TodFikv8VOBcIhDQ1xbRIBr7TE';
-  const consumerSecret = 'Q16rZBLRjCN1VXaBMmzInA3QpGX0MXidMYY0EUweif6PsvbsUQ8GLBLiqZHaebk9';
-  const shortCode = '174379'; // Your Paybill/Till Number
-  const passkey = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919';
-  const callbackURL ='https://mydomain.com/pat'; // Replace with your callback URL
-
-  if (!consumerKey || !consumerSecret || !shortCode || !passkey || !callbackURL) {
-    return res.status(500).json({ error: "Missing M-Pesa credentials. Check environment variables." });
+  // Validate and format amount
+  amount = parseFloat(amount);
+  if (isNaN(amount) || amount <= 0) {
+    return res.status(400).json({ error: "Invalid amount. Must be a positive number." });
   }
 
-    // Convert '07XXXXXXXX' to '2547XXXXXXXX'
-    if (phoneNumber.startsWith("07")) {
-      phoneNumber = "254" + phoneNumber.substring(1);
-    }
-  // Generate timestamp
-  const timestamp = new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 14);
-  
-  // Encode password
-  const password = Buffer.from(shortCode + passkey + timestamp).toString('base64');
+  // M-Pesa requires amount to be at least 10 KES and whole numbers
+  if (amount < 10) {
+    return res.status(400).json({ error: "Minimum amount is 10 KES" });
+  }
+  amount = Math.floor(amount); // Remove decimals
+
+  // Load credentials from environment variables
+  const consumerKey = process.env.MPESA_CONSUMER_KEY || 'JFvBXWMm0yPfiDwTWNPbc2TodFikv8VOBcIhDQ1xbRIBr7TE';
+  const consumerSecret = process.env.MPESA_CONSUMER_SECRET || 'Q16rZBLRjCN1VXaBMmzInA3QpGX0MXidMYY0EUweif6PsvbsUQ8GLBLiqZHaebk9';
+  const shortCode = process.env.MPESA_SHORTCODE || '174379'; // Your Paybill/Till Number
+  const passkey = process.env.MPESA_PASSKEY || 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919';
+  const callbackURL = process.env.MPESA_CALLBACK_URL || 'https://mydomain.com/path'; 
+
+  // Validate phone number (FIXED REGEX)
+  if (!phoneNumber || !/^(07|2547|25407|\+2547)\d{8}$/.test(phoneNumber)) {
+    return res.status(400).json({ error: "Invalid phone number format. Use format: 07XXXXXXXX, 2547XXXXXXXX, or +2547XXXXXXXX" });
+  }
+
+  // Convert phone number to 254 format
+  phoneNumber = phoneNumber.replace(/^0/, '254').replace(/^\+/, '');
+
+  // Rest of your code remains the same...
+  // Generate timestamp (YYYYMMDDHHmmss)
+  const now = new Date();
+  const timestamp = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+    String(now.getHours()).padStart(2, '0'),
+    String(now.getMinutes()).padStart(2, '0'),
+    String(now.getSeconds()).padStart(2, '0')
+  ].join('');
+
+  // Generate password (Base64 encoded shortcode + passkey + timestamp)
+  const password = Buffer.from(`${shortCode}${passkey}${timestamp}`).toString('base64');
 
   try {
-    // Step 1: Get M-Pesa Access Token
+    // Get OAuth token
     const tokenResponse = await axios.get(
       'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials',
       {
@@ -99,12 +120,16 @@ app.post('/api/mpesa', async (req, res) => {
           username: consumerKey,
           password: consumerSecret,
         },
+        headers: {
+          'Content-Type': 'application/json'
+        }
       }
     );
+
     const accessToken = tokenResponse.data.access_token;
 
-    // Step 2: Initiate STK Push
-    const paymentResponse = await axios.post(
+    // Initiate STK Push
+    const stkResponse = await axios.post(
       'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest',
       {
         BusinessShortCode: shortCode,
@@ -117,20 +142,38 @@ app.post('/api/mpesa', async (req, res) => {
         PhoneNumber: phoneNumber,
         CallBackURL: callbackURL,
         AccountReference: 'FoodDelivery',
-        TransactionDesc: 'Payment for food delivery',
+        TransactionDesc: 'Payment for meal order',
       },
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
-        },
+        }
       }
     );
 
-    res.status(200).json(paymentResponse.data);
+    res.status(200).json({
+      success: true,
+      message: 'Payment request initiated successfully',
+      data: stkResponse.data
+    });
+
   } catch (error) {
-    console.error('Error processing Mpesa payment:', error.response?.data || error.message);
-    res.status(500).json({ error: 'Failed to process M-Pesa payment' });
+    console.error('M-Pesa API Error:', {
+      request: error.config?.data,
+      response: error.response?.data,
+      message: error.message
+    });
+
+    const errorMessage = error.response?.data?.errorMessage || 
+                       error.response?.data?.message || 
+                       'Failed to process payment';
+
+    res.status(error.response?.status || 500).json({
+      success: false,
+      error: errorMessage,
+      code: error.response?.data?.errorCode
+    });
   }
 });
 app.post('/api/stripe', async (req, res) => {
@@ -378,82 +421,73 @@ app.post('/api/restaurants/:id/meals', (req, res) => {
   });
   
 });
-app.post('/api/orders', (req, res) => {
-  const {
-    userId,
-    mealId,
-    restaurantId,
-    quantity,
-    isSpicy,
-    addDrink,
-    selectedDrink,
-    address,
-    deliveryFee,
-    location,
-    paymentMethod,
-    withFries,
-    withSoda,
-    withSalad,
-    withSauce,
-    withChilly,
-    withPasta,
-  } = req.body;
+app.post('/api/orders', async (req, res) => {
+  try {
+    // Verify token first
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ success: false, error: 'Authentication required' });
+    }
 
-  const generateOrderNumber = () => {
-    return 'ORD' + Math.floor(Math.random() * 1000000000) + Date.now();
-  };
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Validate required fields
+    if (!req.body.meal_id || !req.body.restaurant_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing meal or restaurant reference'
+      });
+    }
 
-  const orderNumber = generateOrderNumber();
+    // Generate order number
+    const orderNumber = `ORD-${Date.now().toString().slice(-6)}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-  let sql = `
-    INSERT INTO orders (
-      order_number,
-      user_id,
-      meal_id,
-      restaurant_id,
-      quantity,
-      is_spicy,
-      add_drink,
-      selected_drink,
-      address,
-      delivery_fee,
-      location,
-      payment_method,
-      with_fries,
-      with_soda,
-      with_salad,
-      with_sauce,
-      with_chilly,
-      with_pasta,
-      status,
-      date
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-  `;
+    // Prepare order data with defaults
+    const orderData = {
+      order_number: orderNumber,
+      user_id: decoded.id,
+      meal_id: req.body.meal_id,
+      restaurant_id: req.body.restaurant_id,
+      quantity: req.body.quantity || 1,
+      is_spicy: req.body.is_spicy || false,
+      add_drink: req.body.add_drink || false,
+      selected_drink: req.body.selected_drink || null,
+      address: req.body.address || null,
+      delivery_fee: req.body.delivery_fee || 0,
+      payment_method: req.body.payment_method,
+      with_fries: req.body.with_fries || false,
+      with_soda: req.body.with_soda || false,
+      with_salad: req.body.with_salad || false,
+      with_sauce: req.body.with_sauce || false,
+      with_chilly: req.body.with_chilly || false,
+      with_pasta: req.body.with_pasta || false,
+      special_instructions: req.body.special_instructions || null,
+      status: 'pending'
+    };
 
-  db.query(sql, [
-    orderNumber,
-    userId,
-    mealId,
-    restaurantId,
-    quantity,
-    isSpicy,
-    addDrink,
-    selectedDrink,
-    address,
-    deliveryFee,
-    JSON.stringify(location),
-    paymentMethod,
-    withFries,
-    withSoda,
-    withSalad,
-    withSauce,
-    withChilly,
-    withPasta,
-    0 // Assuming 0 is the default status for a new order
-  ], (err, result) => {
-    if (err) throw err;
-    res.send({ message: 'Order placed successfully', orderId: result.insertId, orderNumber });
-  });
+    // Execute query
+    const sql = `INSERT INTO orders SET ?`;
+    const [result] = await db.query(sql, orderData);
+
+    res.status(201).json({
+      success: true,
+      orderId: result.insertId,
+      orderNumber: orderNumber
+    });
+
+  } catch (error) {
+    console.error('Order creation error:', error);
+    
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ success: false, error: 'Invalid token' });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create order',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
 });
 app.get('/api/meals/:id', (req, res) => {
   const { id } = req.params;
@@ -819,8 +853,8 @@ app.get('/api/users/:userId/orders', (req, res) => {
     res.json(result);
   });
 });
-const server = app.listen(port, '192.168.181.75', () => {
-  console.log(`Server running on port http://192.168.181.75:${port}`);
+const server = app.listen(port, () => {
+  console.log(`Server running on port http://192.168.158.75:${port}`);
 });
 
 server.on('upgrade', (request, socket, head) => {

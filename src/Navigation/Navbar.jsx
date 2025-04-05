@@ -22,14 +22,21 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="bg-white shadow-lg fixed w-full top-0 left-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+      <nav className="bg-white shadow-lg fixed w-full top-0 left-0 z-50 h-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full">
+          <div className="flex items-center justify-between h-full">
             <div className="flex items-center">
-              <button onClick={toggleSidebar} className="text-blue-500 text-2xl">
+              <button 
+                onClick={toggleSidebar} 
+                className="text-blue-500 hover:text-blue-700 text-2xl mr-4"
+                aria-label="Toggle menu"
+              >
                 <FaBars />
               </button>
-              <Link to="/" className="text-blue-500 font-bold text-xl ml-4">
+              <Link 
+                to="/" 
+                className="text-blue-500 font-bold text-xl hover:text-blue-700"
+              >
                 Home
               </Link>
             </div>
@@ -37,17 +44,23 @@ export default function Navbar() {
               {token && role === 'user' && <SearchBar />}
               {!token ? (
                 <>
-                  <Link to="/login" className="text-blue-500 font-bold">
+                  <Link 
+                    to="/login" 
+                    className="text-blue-500 font-bold hover:text-blue-700"
+                  >
                     Login
                   </Link>
-                  <Link to="/signup" className="text-blue-500 font-bold">
+                  <Link 
+                    to="/signup" 
+                    className="text-blue-500 font-bold hover:text-blue-700 ml-4"
+                  >
                     Sign Up
                   </Link>
                 </>
               ) : (
                 <button
                   onClick={handleLogout}
-                  className="bg-blue-500 text-white font-bold py-2 px-4 rounded hover:bg-blue-700"
+                  className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors duration-200"
                 >
                   Logout
                 </button>
@@ -57,21 +70,30 @@ export default function Navbar() {
         </div>
       </nav>
 
+      {/* Sidebar */}
       <div
-        className={`fixed top-0 left-0 w-64 bg-white shadow-lg h-full z-20 transform ${
+        className={`fixed top-0 left-0 w-64 bg-white shadow-lg h-full z-40 transform ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } transition-transform duration-300 ease-in-out`}
       >
-        <div className="p-4">
-          <h2 className="text-2xl font-bold mb-4">Menu</h2>
-          <ul>
-            <li className="mb-2">
-              <Link to="/profile" className="text-blue-500 font-bold" onClick={toggleSidebar}>
+        <div className="p-4 pt-20"> {/* Added pt-20 to account for navbar height */}
+          <h2 className="text-2xl font-bold mb-6 text-gray-800">Menu</h2>
+          <ul className="space-y-4">
+            <li>
+              <Link 
+                to="/profile" 
+                className="block text-blue-500 font-bold hover:text-blue-700 hover:bg-blue-50 p-2 rounded"
+                onClick={toggleSidebar}
+              >
                 Profile
               </Link>
             </li>
-            <li className="mb-2">
-              <Link to="/orders" className="text-blue-500 font-bold" onClick={toggleSidebar}>
+            <li>
+              <Link 
+                to="/orders" 
+                className="block text-blue-500 font-bold hover:text-blue-700 hover:bg-blue-50 p-2 rounded"
+                onClick={toggleSidebar}
+              >
                 Orders
               </Link>
             </li>
@@ -79,12 +101,20 @@ export default function Navbar() {
         </div>
       </div>
 
+      {/* Overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black opacity-50 z-10"
+          className="fixed inset-0 bg-black bg-opacity-50 z-30"
           onClick={toggleSidebar}
         ></div>
       )}
+
+      {/* Add padding to main content to account for navbar */}
+      <style jsx>{`
+        main {
+          padding-top: 4rem; /* 64px - matches h-16 */
+        }
+      `}</style>
     </>
   );
 }
