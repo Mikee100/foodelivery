@@ -49,7 +49,7 @@ function MealDetailsComponent() {
     const fetchMealDetails = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`http://192.168.158.75:3000/api/meals/${id}`);
+        const response = await axios.get(`http://localhost:3000/api/meals/${id}`);
         setMeal(response.data);
         setFavorite(false); // Replace with actual favorite check
       } catch (err) {
@@ -98,7 +98,7 @@ function MealDetailsComponent() {
       };
   
       // Send the order to your backend
-      const response = await axios.post('http://192.168.158.75:3000/api/orders', orderData);
+      const response = await axios.post('http://roundhouse.proxy.rlwy.net:3000/api/orders', orderData);
   
       if (response.data.success) {
         return response.data; // Return the created order
@@ -126,7 +126,7 @@ function MealDetailsComponent() {
         throw new Error('Minimum payment amount is 10 KES');
       }
   
-      const paymentResponse = await axios.post('http://192.168.158.75:3000/api/mpesa', {
+      const paymentResponse = await axios.post('http://localhost:3000/api/mpesa', {
         phoneNumber,
         amount: Math.floor(amount),
         order_id: order.id // Pass the order ID to link payment with order
@@ -158,7 +158,7 @@ function MealDetailsComponent() {
   
       if (error) throw error;
   
-      const response = await axios.post('http://192.168.158.75:3000/api/stripe', {
+      const response = await axios.post('http://localhost:3000/api/stripe', {
         amount: calculateTotal() * 100,
         currency: 'usd',
         payment_method: paymentMethod.id,

@@ -12,7 +12,7 @@ export default function AddMeal() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`http://192.168.158.75:3000/api/restaurants/${id}/meals`, { name, image, description, price });
+      await axios.post(`http://roundhouse.proxy.rlwy.net:3000/api/restaurants/${id}/meals`, { name, image, description, price });
       alert('Meal added successfully');
       setName('');
       setImage('');

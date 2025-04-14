@@ -14,7 +14,7 @@ export default function ManageOrders() {
     if (!restaurantId) return console.error('Restaurant ID not found in localStorage');
 
     try {
-      const response = await axios.get(`http://192.168.158.75:3000/api/orders?restaurantId=${restaurantId}`);
+      const response = await axios.get(`http://roundhouse.proxy.rlwy.net:3000/api/orders?restaurantId=${restaurantId}`);
       const unprocessedOrders = response.data.filter(order => order.status !== 'Delivered');
       setOrders(unprocessedOrders);
     } catch (error) {
@@ -24,7 +24,7 @@ export default function ManageOrders() {
 
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
     try {
-      await axios.put(`http://192.168.158.75:3000/api/orders/${orderId}/status`, { status: newStatus }, {
+      await axios.put(`http://roundhouse.proxy.rlwy.net:3000/api/orders/${orderId}/status`, { status: newStatus }, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
       fetchOrders();

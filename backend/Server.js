@@ -1,5 +1,5 @@
 const express = require('express');
-const mysql = require('mysql2');
+const mysql = require('mysql2/promise');
 const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
@@ -18,32 +18,45 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 const app = express();
-const port = 3000;
+
 
 app.use(bodyParser.json());
 
 
 app.use(cors());
-
-const db = mysql.createConnection({
-  host: '192.168.158.75',
+const port = 3000;
+const db = mysql.createPool({
+  host: 'roundhouse.proxy.rlwy.net',          // Tunnel endpoint
   user: 'root',
-  password: '10028mike.',
-  database: 'food_delivery'
+  password: 'hHVFRQDcBHWwwlwkHkdNWWzDZPuDuKlN',
+  database: 'food_delivery',  // or 'railway' — check your schema name
+  port: 32347, // <- THIS is key for railway tunnel
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0               // When using `railway connect`, it'll usually forward to 3306
+
 });
+
+
 
 // Connect to MySQL
-db.connect((err) => {
-  if (err) {
-    throw err;
+async function testConnection() {
+  try {
+    const connection = await db.getConnection();
+    console.log('MySQL connected...');
+    connection.release(); // Release the connection back to the pool
+  } catch (err) {
+    console.error('MySQL connection failed:', err);
+    process.exit(1); // Exit if connection fails
   }
-  console.log('MySQL connected...');
-});
+}
+
+testConnection();
 
 const stripe = require('stripe')('sk_test_51P1B7LCXIhVW50LeLXacm9VK72GEVjz5HQ7n10tCy9aHRI69LMXXgp4m2mPsQgOTQRcP1HQwTNCVBSyeDHMBOz9p00Rgu6NaPe');
 
 
-const dbPromise = db.promise();
+
 
 const wss = new WebSocket.Server({ noServer: true });
 
@@ -57,7 +70,7 @@ app.post('/api/upload', upload.single('image'), (req, res) => {
   if (!req.file) {
     return res.status(400).send('No file uploaded.');
   }
-  const imageUrl = `http://192.168.158.75:${port}/uploads/${req.file.filename}`;
+  const imageUrl = `http://roundhouse.proxy.rlwy.net:${port}/uploads/${req.file.filename}`;
   res.send({ imageUrl });
 });
 
@@ -376,41 +389,59 @@ app.post('/api/restaurants', (req, res) => {
   });
 });
 
-app.get('/api/restaurants', (req, res) => {
-  let sql = 'SELECT * FROM restaurants';
-  db.query(sql, (err, results) => {
-    if (err) throw err;
+app.get('/api/restaurants', async (req, res) => {
+  try {
+    const [results] = await db.query('SELECT * FROM restaurants');
     res.json(results);
-  });
+  } catch (err) {
+    console.error('Database error:', err);
+    res.status(500).json({ error: 'Database query failed' });
+  }
 });
 
-app.get('/api/restaurants/:id', (req, res) => {
-  const { id } = req.params;
-  let sql = 'SELECT * FROM restaurants WHERE id = ?';
-  db.query(sql, [id], (err, result) => {
-    if (err) throw err;
-    res.json(result[0]);
-  });
-});
-
-
-app.get('/api/restaurants/:id/meals', (req, res) => {
-  const { id } = req.params;
-  const sql = `
-    SELECT meals.*, categories.name AS category_name
-    FROM meals
-    LEFT JOIN categories ON meals.category_id = categories.id
-    WHERE meals.restaurant_id = ?
-  `;
-  db.query(sql, [id], (err, results) => {
-    if (err) {
-      console.error('Error fetching meals:', err);
-      return res.status(500).send('Error fetching meals');
+app.get('/api/restaurants/:id', async (req, res) => {
+  try {
+    const [results] = await db.query(
+      'SELECT * FROM restaurants WHERE id = ?',
+      [req.params.id]
+    );
+    if (results.length === 0) {
+      return res.status(404).json({ error: 'Restaurant not found' });
     }
-    res.json(results);
-  });
+    res.json(results[0]);
+  } catch (err) {
+    console.error('Database error:', err);
+    res.status(500).json({ error: 'Database query failed' });
+  }
 });
 
+
+app.get('/api/restaurants/:id/meals', async (req, res) => {
+  try {
+    const [results] = await db.query(`
+      SELECT meals.*, categories.name AS category_name
+      FROM meals
+      LEFT JOIN categories ON meals.category_id = categories.id
+      WHERE meals.restaurant_id = ?
+    `, [req.params.id]);
+
+    if (!results || results.length === 0) {
+      return res.status(404).json({ 
+        message: 'No meals found for this restaurant',
+        data: []
+      });
+    }
+
+    return res.json(results); // Only one response is sent
+    
+  } catch (err) {
+    console.error('Database error:', err);
+    return res.status(500).json({ 
+      error: 'Failed to fetch meals',
+      details: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+});
 app.post('/api/restaurants/:id/meals', (req, res) => {
   const { id } = req.params;
   const { name, image, description, price } = req.body;
@@ -489,15 +520,70 @@ app.post('/api/orders', async (req, res) => {
     });
   }
 });
-app.get('/api/meals/:id', (req, res) => {
+app.get('/api/meals/:id', async (req, res) => {
   const { id } = req.params;
-  let sql = 'SELECT * FROM meals WHERE id = ?';
-  db.query(sql, [id], (err, result) => {
-    if (err) throw err;
-    res.json(result[0]);
-  });
-});
+  
+  // Enhanced input validation
+  if (!id || !/^\d+$/.test(id)) {
+    return res.status(400).json({ 
+      success: false,
+      message: 'Invalid meal ID: must be a positive integer'
+    });
+  }
 
+  try {
+    const sql = `
+      SELECT 
+        m.id,
+        m.name,
+        m.description,
+        m.price,
+        m.image,
+        c.name AS category_name,
+        r.name AS restaurant_name
+      FROM meals m
+      LEFT JOIN categories c ON m.category_id = c.id
+      LEFT JOIN restaurants r ON m.restaurant_id = r.id
+      WHERE m.id = ?
+    `;
+    
+    const [results] = await db.query(sql, [id]);
+    
+    if (!results?.length) {
+      return res.status(404).json({
+        success: false,
+        message: `Meal with ID ${id} not found`
+      });
+    }
+
+    // Format response with explicit field mapping
+    const mealData = {
+      id: results[0].id.toString(),
+      name: results[0].name || null,
+      description: results[0].description || null,
+      price: Number(results[0].price), // Keep as number (not string)
+      image: results[0].image || null,
+      categoryName: results[0].category_name || null,
+      restaurantName: results[0].restaurant_name || null
+    };
+
+    res.json({
+      success: true,
+      data: mealData
+    });
+
+  } catch (error) {
+    console.error('Database error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      ...(process.env.NODE_ENV === 'development' && {
+        error: error.message,
+        stack: error.stack
+      })
+    });
+  }
+});
 
 app.put('/api/orders/:id/status', (req, res) => {
   const { id } = req.params;
@@ -854,7 +940,7 @@ app.get('/api/users/:userId/orders', (req, res) => {
   });
 });
 const server = app.listen(port, () => {
-  console.log(`Server running on port http://192.168.158.75:${port}`);
+  console.log(`Server running on port ${port}`);
 });
 
 server.on('upgrade', (request, socket, head) => {

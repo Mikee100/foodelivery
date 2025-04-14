@@ -17,7 +17,7 @@ export default function ProcessedOrders() {
     }
 
     try {
-      const response = await axios.get(`http://192.168.158.75:3000/api/processedorders/processed?restaurantId=${restaurantId}`);
+      const response = await axios.get(`http://roundhouse.proxy.rlwy.net:3000/api/processedorders/processed?restaurantId=${restaurantId}`);
      
       if (Array.isArray(response.data)) {
         setProcessedOrders(response.data);

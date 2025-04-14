@@ -14,7 +14,7 @@ export default function SearchResults() {
   useEffect(() => {
     const fetchResults = async () => {
       try {
-        const response = await axios.get(`http://192.168.158.75:3000/api/search?query=${query}&filter=${filter}`);
+        const response = await axios.get(`http://roundhouse.proxy.rlwy.net:3000/api/search?query=${query}&filter=${filter}`);
         setResults(response.data);
       } catch (error) {
         console.error('Error searching for meals and restaurants:', error);

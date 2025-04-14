@@ -24,7 +24,7 @@ export default function OwnerDashboard() {
     }
 
     try {
-      const response = await axios.get(`http://192.168.158.75:3000/api/restaurants/${restaurantId}`);
+      const response = await axios.get(`http://roundhouse.proxy.rlwy.net:3000/api/restaurants/${restaurantId}`);
       setRestaurantName(response.data.name);
     } catch (error) {
       console.error('Error fetching restaurant details:', error);

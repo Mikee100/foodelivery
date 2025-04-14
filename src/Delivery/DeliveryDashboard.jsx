@@ -30,7 +30,7 @@ export default function DeliveryDashboard() {
     }
     
     try {
-      const response = await axios.get('http://192.168.158.75:3000/api/delivery/orders', {
+      const response = await axios.get('http://roundhouse.proxy.rlwy.net:3000/api/delivery/orders', {
         params: { deliveryPersonId, restaurantId },
       });
       setOrders(response.data);
@@ -46,7 +46,7 @@ export default function DeliveryDashboard() {
       return;
     }
     try {
-      const response = await axios.get(`http://192.168.158.75:3000/api/delivery-persons/${deliveryPersonId}`);
+      const response = await axios.get(`http://roundhouse.proxy.rlwy.net:3000/api/delivery-persons/${deliveryPersonId}`);
       setDeliveryPerson(response.data);
     } catch (error) {
       console.error('Error fetching delivery person details:', error.response?.data || error.message);
@@ -57,7 +57,7 @@ export default function DeliveryDashboard() {
     e.preventDefault();
     const deliveryPersonId = localStorage.getItem('userId'); // Assuming the user ID is stored in local storage
     try {
-      await axios.put(`http://192.168.158.75:3000/api/delivery-persons/${deliveryPersonId}`, deliveryPerson);
+      await axios.put(`http://roundhouse.proxy.rlwy.net:3000/api/delivery-persons/${deliveryPersonId}`, deliveryPerson);
       alert('Details updated successfully');
     } catch (error) {
       console.error('Error updating details:', error.response?.data || error.message);
@@ -68,7 +68,7 @@ export default function DeliveryDashboard() {
     e.preventDefault();
     const deliveryPersonId = localStorage.getItem('userId'); // Assuming the user ID is stored in local storage
     try {
-      await axios.put(`http://192.168.158.75:3000/api/delivery-persons/${deliveryPersonId}/password`, {
+      await axios.put(`http://roundhouse.proxy.rlwy.net:3000/api/delivery-persons/${deliveryPersonId}/password`, {
         currentPassword,
         newPassword,
       });
@@ -90,7 +90,7 @@ export default function DeliveryDashboard() {
 
   const handleDispatchOrder = async (orderId) => {
     try {
-      await axios.put(`http://192.168.158.75:3000/api/orders/${orderId}/dispatch`);
+      await axios.put(`http://roundhouse.proxy.rlwy.net:3000/api/orders/${orderId}/dispatch`);
       fetchOrders(); // Refresh the orders list after dispatching
     } catch (error) {
       console.error('Error dispatching order:', error);
