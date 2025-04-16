@@ -17,7 +17,7 @@ export default function SignUp() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('http://roundhouse.proxy.rlwy.net:3000/api/signup', {
+      await axios.post('http://localhost:3000/api/signup', {
         username,
         email,
         password,

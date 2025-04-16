@@ -2,17 +2,15 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaBars } from 'react-icons/fa';
 import SearchBar from './SearchBar';
+import { useAuth } from '../AuthContext/AuthContext';
 
 export default function Navbar() {
   const navigate = useNavigate();
-  const token = localStorage.getItem('token');
-  const role = localStorage.getItem('role');
+  const { user, token, logout } = useAuth(); // Get auth state and logout function
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('role');
-    localStorage.removeItem('user');
+    logout(); // Use the logout function from context
     navigate('/login');
   };
 
@@ -41,8 +39,20 @@ export default function Navbar() {
               </Link>
             </div>
             <div className="flex items-center space-x-4">
-              {token && role === 'user' && <SearchBar />}
-              {!token ? (
+              {token && user?.role === 'user' && <SearchBar />}
+              {token ? (
+                <div className="flex items-center space-x-4">
+                  <span className="text-gray-700 hidden sm:inline">
+                    Welcome, {user?.name || 'User'}
+                  </span>
+                  <button
+                    onClick={handleLogout}
+                    className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors duration-200"
+                  >
+                    Logout
+                  </button>
+                </div>
+              ) : (
                 <>
                   <Link 
                     to="/login" 
@@ -57,49 +67,55 @@ export default function Navbar() {
                     Sign Up
                   </Link>
                 </>
-              ) : (
-                <button
-                  onClick={handleLogout}
-                  className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors duration-200"
-                >
-                  Logout
-                </button>
               )}
             </div>
           </div>
         </div>
       </nav>
 
-      {/* Sidebar */}
-      <div
-        className={`fixed top-0 left-0 w-64 bg-white shadow-lg h-full z-40 transform ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } transition-transform duration-300 ease-in-out`}
-      >
-        <div className="p-4 pt-20"> {/* Added pt-20 to account for navbar height */}
-          <h2 className="text-2xl font-bold mb-6 text-gray-800">Menu</h2>
-          <ul className="space-y-4">
-            <li>
-              <Link 
-                to="/profile" 
-                className="block text-blue-500 font-bold hover:text-blue-700 hover:bg-blue-50 p-2 rounded"
-                onClick={toggleSidebar}
-              >
-                Profile
-              </Link>
-            </li>
-            <li>
-              <Link 
-                to="/orders" 
-                className="block text-blue-500 font-bold hover:text-blue-700 hover:bg-blue-50 p-2 rounded"
-                onClick={toggleSidebar}
-              >
-                Orders
-              </Link>
-            </li>
-          </ul>
+      {/* Sidebar - only shown when logged in */}
+      {token && (
+        <div
+          className={`fixed top-0 left-0 w-64 bg-white shadow-lg h-full z-40 transform ${
+            sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          } transition-transform duration-300 ease-in-out`}
+        >
+          <div className="p-4 pt-20">
+            <h2 className="text-2xl font-bold mb-6 text-gray-800">Menu</h2>
+            <ul className="space-y-4">
+              <li>
+                <Link 
+                  to="/profile" 
+                  className="block text-blue-500 font-bold hover:text-blue-700 hover:bg-blue-50 p-2 rounded"
+                  onClick={toggleSidebar}
+                >
+                  Profile
+                </Link>
+              </li>
+              <li>
+                <Link 
+                  to="/orders" 
+                  className="block text-blue-500 font-bold hover:text-blue-700 hover:bg-blue-50 p-2 rounded"
+                  onClick={toggleSidebar}
+                >
+                  Orders
+                </Link>
+              </li>
+              {user?.role === 'admin' && (
+                <li>
+                  <Link 
+                    to="/admin" 
+                    className="block text-blue-500 font-bold hover:text-blue-700 hover:bg-blue-50 p-2 rounded"
+                    onClick={toggleSidebar}
+                  >
+                    Admin Dashboard
+                  </Link>
+                </li>
+              )}
+            </ul>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Overlay */}
       {sidebarOpen && (

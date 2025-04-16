@@ -26,11 +26,11 @@ app.use(bodyParser.json());
 app.use(cors());
 const port = 3000;
 const db = mysql.createPool({
-  host: 'roundhouse.proxy.rlwy.net',          // Tunnel endpoint
+  host: 'localhost',          // Tunnel endpoint
   user: 'root',
-  password: 'hHVFRQDcBHWwwlwkHkdNWWzDZPuDuKlN',
+  password: '10028mike.',
   database: 'food_delivery',  // or 'railway' — check your schema name
-  port: 32347, // <- THIS is key for railway tunnel
+ 
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0               // When using `railway connect`, it'll usually forward to 3306
@@ -217,82 +217,139 @@ app.post('/api/signup', async (req, res) => {
   });
 });
 const SECRET = 'waweru'
+
+
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
-  
-  // Query to find the user by email
-  let sql = 'SELECT * FROM users WHERE email = ?';
-  
-  // Use promise-based approach to handle the query for better async handling
-  try {
-    const result = await new Promise((resolve, reject) => {
-      db.query(sql, [email], (err, result) => {
-        if (err) reject(err);
-        resolve(result);
-      });
+  console.log("Login attempt for:", email);
+
+  // Input validation
+  if (!email || !password) {
+    console.warn("Validation failed - missing credentials");
+    return res.status(400).json({ 
+      success: false,
+      message: 'Email and password are required' 
     });
+  }
 
-    if (result.length === 0) {
-      return res.status(401).send('Invalid credentials');
+  try {
+    // Database query
+    const [users] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
+    console.log("User query results:", users.length, "users found");
+    
+    if (users.length === 0) {
+      console.warn("No user found for email:", email);
+      return res.status(401).json({ 
+        success: false,
+        message: 'Invalid credentials' 
+      });
     }
 
-    const user = result[0];
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      return res.status(401).send('Invalid credentials');
+    const user = users[0];
+    console.log("Authenticating user:", user.id, "Role:", user.role);
+ 
+
+    // Account status checks
+    if (user.status_disabled) {
+      console.warn("Account disabled for user:", user.id);
+      return res.status(403).json({ 
+        success: false,
+        message: 'Account disabled. Contact support.' 
+      });
     }
 
-    // Initialize variables to hold additional role-based data
-    let restaurantId = null;
-    let deliveryPersonId = null;
+   
 
-    // Fetch the restaurant_id if the user is a restaurant owner
+    // Password verification
+    console.log("Comparing passwords...");
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      console.warn("Password mismatch for user:", user.id);
+      return res.status(401).json({ 
+        success: false,
+        message: 'Invalid credentials' 
+      });
+    }
+
+    // Prepare token payload
+    const tokenPayload = {
+      userId: user.id,
+      email: user.email,
+      role: user.role
+    };
+
+    // Role-specific data fetching
     if (user.role === 'restaurant_owner') {
-      let restaurantSql = 'SELECT id FROM restaurants WHERE user_id = ?';
-      const restaurantResult = await new Promise((resolve, reject) => {
-        db.query(restaurantSql, [user.id], (err, result) => {
-          if (err) reject(err);
-          resolve(result);
-        });
-      });
-      if (restaurantResult.length > 0) {
-        restaurantId = restaurantResult[0].id;
+      console.log("Fetching restaurant data for owner:", user.id);
+      const [restaurants] = await db.query(
+        'SELECT id FROM restaurants WHERE user_id = ?', 
+        [user.id]
+      );
+      if (restaurants.length > 0) {
+        tokenPayload.restaurantId = restaurants[0].id;
+        console.log("Restaurant ID found:", restaurants[0].id);
       }
     }
 
-    // Fetch the deliveryPersonId if the user is a delivery person
     if (user.role === 'delivery_person') {
-      let deliverySql = 'SELECT id, restaurant_id FROM delivery_persons WHERE user_id = ?';
-      const deliveryResult = await new Promise((resolve, reject) => {
-        db.query(deliverySql, [user.id], (err, result) => {
-          if (err) reject(err);
-          resolve(result);
-        });
-      });
-      if (deliveryResult.length > 0) {
-        deliveryPersonId = deliveryResult[0].id;
-        // Set restaurantId for delivery person if it's associated
-        restaurantId = deliveryResult[0].restaurant_id || null;
+      console.log("Fetching delivery person data:", user.id);
+      const [deliveryPersons] = await db.query(
+        'SELECT id, restaurant_id FROM delivery_persons WHERE user_id = ?',
+        [user.id]
+      );
+      if (deliveryPersons.length > 0) {
+        tokenPayload.deliveryPersonId = deliveryPersons[0].id;
+        tokenPayload.restaurantId = deliveryPersons[0].restaurant_id;
+        console.log("Delivery person data found:", deliveryPersons[0]);
       }
     }
 
-    // Create a JWT token that includes role-specific information
-    const token = jwt.sign(
-      { id: user.id, role: user.role, restaurant_id: restaurantId, delivery_person_id: deliveryPersonId },
-      SECRET,
-      { expiresIn: '10h' }
-    );
+    // Generate JWT token
+    console.log("Generating JWT token...");
+    const token = jwt.sign(tokenPayload, SECRET, { expiresIn: '24h' });
 
-    // Log the generated token to the console for debugging
-    console.log('Generated Token:', token);
+    // Session setup
+    if (req.session) {
+      req.session.token = token;
+      req.session.userId = user.id;
+      req.session.role = user.role;
+      console.log("Session configured for user:", user.id);
+    }
 
-    // Respond with token and additional data
-    res.send({ token, role: user.role, user, restaurantId, deliveryPersonId });
+    // Successful response
+    const response = {
+      success: true,
+      message: 'Login successful',
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }
+    };
+
+    // Add role-specific IDs to response
+    if (tokenPayload.restaurantId) {
+      response.restaurantId = tokenPayload.restaurantId;
+    }
+    if (tokenPayload.deliveryPersonId) {
+      response.deliveryPersonId = tokenPayload.deliveryPersonId;
+    }
+
+    console.log("Login successful for:", user.email);
+    return res.status(200).json(response);
+
   } catch (error) {
-    console.error('Error during login:', error);
-    res.status(500).send('Internal server error');
+    console.error("Login error:", error);
+    return res.status(500).json({ 
+      success: false,
+      message: 'Internal server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
+
 
 const authenticate = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
@@ -457,65 +514,219 @@ app.post('/api/orders', async (req, res) => {
     // Verify token first
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
-      return res.status(401).json({ success: false, error: 'Authentication required' });
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Authentication token required',
+        code: 'AUTH_REQUIRED'
+      });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
+    // Verify token with proper error handling
+    let decoded;
+    try {
+      decoded = jwt.verify(token, SECRET);
+    } catch (jwtError) {
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Invalid or expired token',
+        code: 'INVALID_TOKEN'
+      });
+    }
+
     // Validate required fields
-    if (!req.body.meal_id || !req.body.restaurant_id) {
+    const requiredFields = ['meal_id', 'restaurant_id', 'payment_method'];
+    const missingFields = requiredFields.filter(field => !req.body[field]);
+    
+    if (missingFields.length > 0) {
       return res.status(400).json({
         success: false,
-        error: 'Missing meal or restaurant reference'
+        error: `Missing required fields: ${missingFields.join(', ')}`,
+        code: 'MISSING_FIELDS',
+        requiredFields
+      });
+    }
+
+    // Validate field types
+    if (isNaN(req.body.meal_id) || isNaN(req.body.restaurant_id)) {
+      return res.status(400).json({
+        success: false,
+        error: 'meal_id and restaurant_id must be numbers',
+        code: 'INVALID_ID_TYPE'
       });
     }
 
     // Generate order number
     const orderNumber = `ORD-${Date.now().toString().slice(-6)}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    // Prepare order data with defaults
+    // Prepare order data with proper MySQL boolean conversion
     const orderData = {
       order_number: orderNumber,
       user_id: decoded.id,
-      meal_id: req.body.meal_id,
-      restaurant_id: req.body.restaurant_id,
-      quantity: req.body.quantity || 1,
-      is_spicy: req.body.is_spicy || false,
-      add_drink: req.body.add_drink || false,
+      meal_id: Number(req.body.meal_id),
+      restaurant_id: Number(req.body.restaurant_id),
+      quantity: Number(req.body.quantity) || 1,
+      is_spicy: req.body.is_spicy ? 1 : 0, // Convert to MySQL tinyint
+      add_drink: req.body.add_drink ? 1 : 0,
       selected_drink: req.body.selected_drink || null,
       address: req.body.address || null,
-      delivery_fee: req.body.delivery_fee || 0,
+      delivery_fee: Number(req.body.delivery_fee) || 0,
       payment_method: req.body.payment_method,
-      with_fries: req.body.with_fries || false,
-      with_soda: req.body.with_soda || false,
-      with_salad: req.body.with_salad || false,
-      with_sauce: req.body.with_sauce || false,
-      with_chilly: req.body.with_chilly || false,
-      with_pasta: req.body.with_pasta || false,
+      with_fries: req.body.with_fries ? 1 : 0,
+      with_soda: req.body.with_soda ? 1 : 0,
+      with_salad: req.body.with_salad ? 1 : 0,
+      with_sauce: req.body.with_sauce ? 1 : 0,
+      with_chilly: req.body.with_chilly ? 1 : 0,
+      with_pasta: req.body.with_pasta ? 1 : 0,
       special_instructions: req.body.special_instructions || null,
-      status: 'pending'
+      status: 'pending',
+      date: new Date() // Explicitly set current timestamp
     };
 
-    // Execute query
-    const sql = `INSERT INTO orders SET ?`;
-    const [result] = await db.query(sql, orderData);
+    // Execute query with transaction for safety
+    const connection = await db.getConnection();
+    try {
+      await connection.beginTransaction();
 
-    res.status(201).json({
-      success: true,
-      orderId: result.insertId,
-      orderNumber: orderNumber
-    });
+      // 1. Insert the order
+      const [result] = await connection.query('INSERT INTO orders SET ?', [orderData]);
+
+      // 2. Optionally update restaurant/meal stats here if needed
+
+      await connection.commit();
+
+      res.status(201).json({
+        success: true,
+        orderId: result.insertId,
+        orderNumber: orderNumber,
+        message: 'Order created successfully'
+      });
+
+    } catch (dbError) {
+      await connection.rollback();
+      throw dbError;
+    } finally {
+      connection.release();
+    }
 
   } catch (error) {
     console.error('Order creation error:', error);
-    
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ success: false, error: 'Invalid token' });
+
+    // Handle specific database errors
+    if (error.code === 'ER_NO_REFERENCED_ROW_2') {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid meal or restaurant reference',
+        code: 'INVALID_REFERENCE'
+      });
     }
 
+    // Generic error response
     res.status(500).json({
       success: false,
       error: 'Failed to create order',
+      code: 'ORDER_CREATION_FAILED',
+      ...(process.env.NODE_ENV === 'development' && {
+        details: error.message,
+        stack: error.stack
+      })
+    });
+  }
+});
+// At the top of your server file (or in a config file)
+const JWT_SECRET =  'waweru';
+// Add this middleware to verify tokens consistently
+const verifyToken = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader) {
+    return res.status(401).json({ 
+      success: false,
+      code: 'MISSING_TOKEN',
+      message: 'Authorization header missing' 
+    });
+  }
+
+  const parts = authHeader.split(' ');
+  if (parts.length !== 2 || parts[0] !== 'Bearer') {
+    return res.status(401).json({ 
+      success: false,
+      code: 'INVALID_TOKEN_FORMAT',
+      message: 'Token format should be: Bearer <token>' 
+    });
+  }
+
+  const token = parts[1];
+  if (!token || token.length < 50) {
+    return res.status(401).json({ 
+      success: false,
+      code: 'INVALID_TOKEN',
+      message: 'Malformed token' 
+    });
+  }
+
+  try {
+    // Use JWT_SECRET instead of undefined SECRET
+    req.user = jwt.verify(token, process.env.JWT_SECRET || JWT_SECRET);
+    next();
+  } catch (err) {
+    console.error('JWT verification failed:', err.message);
+    return res.status(401).json({ 
+      success: false,
+      code: 'TOKEN_VERIFICATION_FAILED',
+      message: 'Invalid or expired token' 
+    });
+  }
+};
+app.get('/api/orders/:orderId', verifyToken, async (req, res) => {
+  try {
+    const orderId = parseInt(req.params.orderId);
+    if (isNaN(orderId)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid order ID format' 
+      });
+    }
+
+    // req.user is already set by verifyToken middleware
+    const [results] = await db.query(`
+      SELECT o.*, m.name as meal_name, r.name as restaurant_name
+      FROM orders o
+      LEFT JOIN meals m ON o.meal_id = m.id
+      LEFT JOIN restaurants r ON o.restaurant_id = r.id
+      WHERE o.id = ? AND o.user_id = ?
+    `, [orderId, req.user.userId]); // Use req.user.userId
+
+    if (!results.length) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Order not found or access denied' 
+      });
+    }
+
+    const order = results[0];
+    res.json({
+      success: true,
+      data: {
+        id: order.id,
+        order_number: order.order_number,
+        meal_name: order.meal_name,
+        restaurant_name: order.restaurant_name,
+        quantity: order.quantity,
+        total_amount: order.total_amount,
+        delivery_fee: order.delivery_fee,
+        payment_method: order.payment_method,
+        status: order.status,
+        date: order.date,
+        address: order.address,
+        special_instructions: order.special_instructions
+      }
+    });
+
+  } catch (error) {
+    console.error('Order fetch error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch order details',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
@@ -539,6 +750,7 @@ app.get('/api/meals/:id', async (req, res) => {
         m.description,
         m.price,
         m.image,
+         m.restaurant_id,
         c.name AS category_name,
         r.name AS restaurant_name
       FROM meals m
@@ -563,6 +775,7 @@ app.get('/api/meals/:id', async (req, res) => {
       description: results[0].description || null,
       price: Number(results[0].price), // Keep as number (not string)
       image: results[0].image || null,
+      restaurant_id: results[0].restaurant_id,
       categoryName: results[0].category_name || null,
       restaurantName: results[0].restaurant_name || null
     };

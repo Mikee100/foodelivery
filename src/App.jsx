@@ -19,6 +19,7 @@ import SearchResults from './Navigation/SearchResults ';
 
 import UserOrders from './User/UserOrders';
 import UserDetails from './User/UserDetails';
+import OrderConfirmation from './Restaurant/OrderConfirmation';
 
 const PrivateRoute = ({ children, role }) => {
   const userRole = localStorage.getItem('role');
@@ -41,11 +42,12 @@ function App() {
         <Route path="/meal/:id" element={<MealDetails />} />
         <Route path="/modify-meal/:mealId" element={<ModifyMeal />} />
         <Route path="/order/:orderNumber" element={<OrderStatus />} />
+        <Route path="/order-confirmation/:orderId" element={<OrderConfirmation />} />
         <Route path="/admin/restaurant/:restaurantId/orders" element={<PrivateRoute role="restaurant_owner"><ManageOrders /></PrivateRoute>} />
-        <Route path="/admin/dashboard" element={<PrivateRoute role="admin"><AdminDashboard /></PrivateRoute>} />
-        <Route path="/owner/dashboard" element={<PrivateRoute role="restaurant_owner"><OwnerDashboard /></PrivateRoute>} />
-        <Route path="/delivery/dashboard" element={<PrivateRoute role="delivery_person"><DeliveryDashboard /></PrivateRoute>} />
-        <Route path="/user/dashboard" element={<PrivateRoute role="user"><UserDashboard /></PrivateRoute>} />
+        <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        <Route path="/owner/dashboard" element={<OwnerDashboard />} />
+        <Route path="/delivery/dashboard" element={<DeliveryDashboard />} />
+        <Route path="/user/dashboard" element={<UserDashboard />} />
         <Route path="/search" element={<SearchResults />} />
         <Route path="/profile" element={<PrivateRoute role="user"><UserDetails /></PrivateRoute>} /> 
         <Route path="/orders" element={<PrivateRoute role="user"><UserOrders /></PrivateRoute>} /> 

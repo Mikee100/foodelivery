@@ -6,12 +6,14 @@ import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import MealInfo from './MealInfo';
 
 const OrderForm = ({ meal, totalAmount }) => {
   const navigate = useNavigate();
   const stripe = useStripe();
   const elements = useElements();
   const userId = localStorage.getItem('userId');
+  
   const [formData, setFormData] = useState({
     quantity: 1,
     isSpicy: false,
@@ -88,7 +90,7 @@ const OrderForm = ({ meal, totalAmount }) => {
 
     try {
       // First create the order
-      const orderResponse = await axios.post('http://192.168.181.75:3000/api/orders', {
+      const orderResponse = await axios.post('http://localhost:3000/api/orders', {
         userId,
         mealId: meal.id,
         restaurantId: meal.restaurant_id,
@@ -132,7 +134,7 @@ const OrderForm = ({ meal, totalAmount }) => {
 
   const handleMpesaPayment = async (orderNumber) => {
     try {
-      await axios.post('http://192.168.181.75:3000/api/mpesa', {
+      await axios.post('http://localhost:3000/api/mpesa', {
         phoneNumber: formData.phoneNumber,
         amount: totalAmount,
         orderNumber
@@ -157,7 +159,7 @@ const OrderForm = ({ meal, totalAmount }) => {
       throw new Error(error.message);
     }
 
-    await axios.post('http://192.168.181.75:3000/api/stripe', {
+    await axios.post('http://localhost:3000/api/stripe', {
       paymentMethodId: paymentMethod.id,
       amount: totalAmount * 100, // Convert to cents
       orderNumber,
@@ -360,6 +362,7 @@ const OrderForm = ({ meal, totalAmount }) => {
     </form>
   );
 };
+
 
 const LocationMarker = ({ initialLocation, onLocationSelect }) => {
   const [position, setPosition] = useState(initialLocation);

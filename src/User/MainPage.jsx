@@ -90,9 +90,9 @@ export default function MainPage() {
   };
 
   const handleRestaurantClick = (id) => {
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     if (!token) {
-      localStorage.setItem('redirectRestaurantId', id);
+      sessionStorage.setItem('redirectRestaurantId', id);
       navigate('/login');
     } else {
       navigate(`/restaurant/${id}`);

@@ -9,7 +9,7 @@ export default function MealDetails() {
   useEffect(() => {
     const fetchMealDetails = async () => {
       try {
-        const response = await axios.get(`http://roundhouse.proxy.rlwy.net:3000/api/meals/${id}`);
+        const response = await axios.get(`http://localhost:3000/api/meals/${id}`);
         setMeal(response.data);
       } catch (error) {
         console.error('Error fetching meal details:', error);
@@ -22,7 +22,7 @@ export default function MealDetails() {
   if (!meal) {
     return <div>Loading...</div>;
   }
-
+  console.log("my meal:", meal);
   return (
     <div className="min-h-screen bg-gradient-to-r from-green-400 to-blue-500 p-6 flex flex-col items-center">
       <h1 className="text-5xl font-extrabold text-center text-white mb-12">{meal.name}</h1>

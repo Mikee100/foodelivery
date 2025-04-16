@@ -1,11 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { FiClock, FiShoppingCart, FiArrowLeft, FiHeart, FiShare2, FiDollarSign } from 'react-icons/fi';
-import { FaHeart, FaWhatsapp, FaFacebook, FaTwitter } from 'react-icons/fa';
-import { GiMeal } from 'react-icons/gi';
+import { 
+  FiClock, 
+  FiShoppingCart, 
+  FiArrowLeft, 
+  FiHeart, 
+  FiShare2, 
+  FiDollarSign,
+  FiStar,
+  FiMapPin,
+  FiPhone
+} from 'react-icons/fi';
+import { FaHeart, FaWhatsapp, FaFacebook, FaTwitter, FaUtensils } from 'react-icons/fa';
+import { GiMeal, GiHotMeal } from 'react-icons/gi';
+import { MdDeliveryDining } from 'react-icons/md';
 
 const stripePromise = loadStripe('your-stripe-public-key');
 
@@ -25,12 +37,6 @@ function MealDetailsComponent() {
   const [selectedDrink, setSelectedDrink] = useState('');
   const [isSpicy, setIsSpicy] = useState(false);
   const [addDrink, setAddDrink] = useState(false);
-  const [withFries, setWithFries] = useState(false);
-  const [withSoda, setWithSoda] = useState(false);
-  const [withSalad, setWithSalad] = useState(false);
-  const [withSauce, setWithSauce] = useState(false);
-  const [withChilly, setWithChilly] = useState(false);
-  const [withPasta, setWithPasta] = useState(false);
   const stripe = useStripe();
   const elements = useElements();
 
@@ -50,10 +56,16 @@ function MealDetailsComponent() {
       try {
         setLoading(true);
         const response = await axios.get(`http://localhost:3000/api/meals/${id}`);
-        setMeal(response.data);
-        setFavorite(false); // Replace with actual favorite check
+        
+        if (response.data.success) {
+          setMeal(response.data.data);
+          // Set default values based on meal data
+          setIsSpicy(response.data.data.name?.toLowerCase().includes('spicy') || false);
+        } else {
+          setError(response.data.message || 'Failed to load meal details');
+        }
       } catch (err) {
-        setError(err.message || 'Failed to load meal details');
+        setError(err.response?.data?.message || err.message || 'Failed to load meal details');
       } finally {
         setLoading(false);
       }
@@ -62,95 +74,158 @@ function MealDetailsComponent() {
     fetchMealDetails();
   }, [id]);
 
+  console.log("my meal:", meal);
   const calculateTotal = () => {
     const basePrice = meal?.price || 0;
-    const deliveryFee = deliveryOption === 'delivery' ? 1 : 0;
-    // Add additional costs for extras if needed
+    const deliveryFee = deliveryOption === 'delivery' ? 50 : 0;
     return (basePrice * quantity + deliveryFee).toFixed(2);
   };
 
-  const handlePlaceOrder = async (paymentMethod) => {
-    try {
-      // Get user ID from your authentication system
-      // This should come from your auth context or localStorage
-      const userId = localStorage.getItem('userId') || 1; // Fallback for demo
-      
-      // Prepare the order data with all required fields
-      const orderData = {
-        userId: userId, // REQUIRED
-        mealId: meal.id, // REQUIRED
-        restaurantId: meal.restaurant_id, // REQUIRED
-        quantity: quantity,
-        isSpicy: isSpicy,
-        addDrink: addDrink,
-        selectedDrink: selectedDrink,
-        address: deliveryOption === 'delivery' ? address : 'Pickup',
-        deliveryFee: deliveryOption === 'delivery' ? 50 : 0,
-        paymentMethod: paymentMethod, // REQUIRED
-        withFries: withFries,
-        withSoda: withSoda,
-        withSalad: withSalad,
-        withSauce: withSauce,
-        withChilly: withChilly,
-        withPasta: withPasta,
-        specialInstructions: orderNotes,
-        totalAmount: calculateTotal()
-      };
-  
-      // Send the order to your backend
-      const response = await axios.post('http://roundhouse.proxy.rlwy.net:3000/api/orders', orderData);
-  
-      if (response.data.success) {
-        return response.data; // Return the created order
-      } else {
-        throw new Error(response.data.error || 'Failed to create order');
-      }
-    } catch (error) {
-      console.error('Order Error:', error);
-      throw error;
+  // Add this near your other imports
+// Add this check before rendering the order form
+if (!meal?.restaurant_id) {
+  return (
+    <div className="p-4 bg-red-50 text-red-800 rounded-lg border border-red-200 my-4">
+      <p className="font-medium">We can't process orders for this meal right now.</p>
+      <p className="mt-1">The restaurant information is missing.</p>
+      <button 
+        onClick={() => window.location.reload()}
+        className="mt-2 text-blue-600 hover:underline"
+      >
+        Try Again
+      </button>
+      <button 
+        onClick={() => navigate(-1)}
+        className="mt-2 ml-4 text-blue-600 hover:underline"
+      >
+        Back to Menu
+      </button>
+    </div>
+  );
+}
+// Modify your handlePlaceOrder function:
+const handlePlaceOrder = async (paymentMethod) => {
+  try {
+    // 1. Token Validation
+    const token = sessionStorage.getItem('token');
+    if (!token) {
+      throw new Error('Authentication required. Please login.');
     }
-  };
-  const handleMpesaPayment = async () => {
-    try {
-      // Validate phone number
-      if (!phoneNumber || !/^(07|2547|25407|\+2547)\d{8}$/.test(phoneNumber)) {
-        throw new Error('Please enter a valid Kenyan phone number (e.g. 07XXXXXXXX or 2547XXXXXXXX)');
-      }
-  
-      // First create the order
-      const order = await handlePlaceOrder('mpesa');
-      
-      // Then initiate M-Pesa payment
-      const amount = parseFloat(calculateTotal());
-      if (isNaN(amount) || amount < 10) {
-        throw new Error('Minimum payment amount is 10 KES');
-      }
-  
-      const paymentResponse = await axios.post('http://localhost:3000/api/mpesa', {
-        phoneNumber,
-        amount: Math.floor(amount),
-        order_id: order.id // Pass the order ID to link payment with order
+
+    // 2. Data Preparation
+    const orderData = {
+      meal_id: meal.id,
+      restaurant_id: meal.restaurant_id,
+      quantity: quantity,
+      is_spicy: isSpicy,
+      add_drink: addDrink,
+      selected_drink: selectedDrink,
+      address: deliveryOption === 'delivery' ? address : 'Pickup',
+      delivery_fee: deliveryOption === 'delivery' ? 50 : 0,
+      payment_method: paymentMethod,
+      special_instructions: orderNotes,
+      total_amount: parseFloat(calculateTotal())
+    };
+
+    // 3. Request Headers
+    const config = {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      validateStatus: (status) => status < 500 // Don't throw for 4xx errors
+    };
+
+    // 4. API Call
+    const response = await axios.post(
+      'http://localhost:3000/api/orders', 
+      orderData, 
+      config
+    );
+
+    // 5. Response Handling
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to create order');
+    }
+
+    return response.data;
+
+  } catch (error) {
+    // 6. Error Handling
+    const errorDetails = {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status
+    };
+
+    console.error('Order placement error:', errorDetails);
+
+    // Handle specific error cases
+    if (error.response?.status === 401 || errorDetails.response?.code === 'INVALID_TOKEN') {
+      sessionStorage.removeItem('token');
+      navigate('/login', { 
+        state: { 
+          from: `/meal/${id}`,
+          message: 'Session expired. Please login again.'
+        } 
       });
-  
-      if (paymentResponse.data.success) {
-        alert('Payment initiated! Check your phone to complete the M-Pesa transaction');
-        navigate(`/order-confirmation/${order.id}`);
-      } else {
-        throw new Error(paymentResponse.data.error || 'Payment initiation failed');
-      }
-    } catch (error) {
-      alert(`Order failed: ${error.message}`);
+      throw new Error('Session expired. Please login again.');
     }
-  };
+
+    // Show user-friendly message
+    const errorMessage = error.response?.data?.error || 
+                        errorDetails.response?.message || 
+                        'Failed to place order. Please try again.';
+    
+    throw new Error(errorMessage);
+  }
+};
+const handleMpesaPayment = async () => {
+  try {
+    // Validate phone number
+    if (!phoneNumber || !/^(07|2547|25407|\+2547)\d{8}$/.test(phoneNumber)) {
+      throw new Error('Please enter a valid Kenyan phone number (e.g. 07XXXXXXXX or 2547XXXXXXXX)');
+    }
+
+    // First create the order
+    const order = await handlePlaceOrder('mpesa');
+    
+    // Validate amount
+    const amount = parseFloat(calculateTotal());
+    if (isNaN(amount) || amount < 10) {
+      throw new Error('Minimum payment amount is 10 KES');
+    }
+
+    // Initiate M-Pesa payment
+    const paymentResponse = await axios.post('http://localhost:3000/api/mpesa', {
+      phoneNumber,
+      amount: Math.floor(amount),
+      order_id: order.orderId // Use orderId instead of id
+    }, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+      }
+    });
+
+    if (!paymentResponse.data.success) {
+      throw new Error(paymentResponse.data.message || 'Payment initiation failed');
+    }
+
+    alert('Payment initiated! Check your phone to complete the M-Pesa transaction');
+    navigate(`/order-confirmation/${order.orderId}`); // Use orderId here
+
+  } catch (error) {
+    console.error('Payment error:', error);
+    alert(`Payment failed: ${error.message}`);
+  }
+};
   
   const handleStripePayment = async () => {
     if (!stripe || !elements) return;
   
     try {
-      // First create the order
       const order = await handlePlaceOrder('card');
       
-      // Then process Stripe payment
       const { error, paymentMethod } = await stripe.createPaymentMethod({
         type: 'card',
         card: elements.getElement(CardElement),
@@ -162,7 +237,7 @@ function MealDetailsComponent() {
         amount: calculateTotal() * 100,
         currency: 'usd',
         payment_method: paymentMethod.id,
-        order_id: order.id // Pass the order ID to link payment with order
+        order_id: order.id
       });
   
       if (response.data.success) {
@@ -263,7 +338,7 @@ function MealDetailsComponent() {
               <h1 className="text-3xl sm:text-4xl font-bold text-white">{meal.name}</h1>
               <div className="flex items-center mt-2 text-white">
                 <FiClock className="mr-2" />
-                <span>Ready in {meal.preparation_time || 30} mins</span>
+                <span>Ready in 30 mins</span>
               </div>
             </div>
           </div>
@@ -301,16 +376,18 @@ function MealDetailsComponent() {
                   <p className="text-gray-600 mb-6">{meal.description || 'A delicious meal prepared with care and fresh ingredients.'}</p>
                   
                   <div className="bg-blue-50 rounded-lg p-4 mb-6">
-                    <h3 className="font-semibold text-blue-800 mb-2">Ingredients</h3>
-                    <ul className="list-disc list-inside text-gray-700">
-                      {meal.ingredients?.length > 0 ? (
-                        meal.ingredients.map((ingredient, index) => (
-                          <li key={index}>{ingredient}</li>
-                        ))
-                      ) : (
-                        <li>Fresh ingredients sourced locally</li>
-                      )}
-                    </ul>
+                    <h3 className="font-semibold text-blue-800 mb-2">Category</h3>
+                    <p className="text-gray-700 flex items-center">
+                      <FaUtensils className="mr-2" />
+                      {meal.categoryName || 'No category specified'}
+                    </p>
+                  </div>
+
+                  <div className="bg-green-50 rounded-lg p-4 mb-6">
+                    <h3 className="font-semibold text-green-800 mb-2">Restaurant</h3>
+                    <p className="text-gray-700">
+                      {meal.restaurantName || 'No restaurant specified'}
+                    </p>
                   </div>
                 </div>
               )}
@@ -321,19 +398,19 @@ function MealDetailsComponent() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-green-50 p-4 rounded-lg">
                       <p className="text-sm text-green-600">Calories</p>
-                      <p className="text-xl font-bold">{meal.calories || '450'} kcal</p>
+                      <p className="text-xl font-bold">450 kcal</p>
                     </div>
                     <div className="bg-yellow-50 p-4 rounded-lg">
                       <p className="text-sm text-yellow-600">Protein</p>
-                      <p className="text-xl font-bold">{meal.protein || '25'}g</p>
+                      <p className="text-xl font-bold">25g</p>
                     </div>
                     <div className="bg-blue-50 p-4 rounded-lg">
                       <p className="text-sm text-blue-600">Carbs</p>
-                      <p className="text-xl font-bold">{meal.carbs || '45'}g</p>
+                      <p className="text-xl font-bold">45g</p>
                     </div>
                     <div className="bg-purple-50 p-4 rounded-lg">
                       <p className="text-sm text-purple-600">Fats</p>
-                      <p className="text-xl font-bold">{meal.fats || '15'}g</p>
+                      <p className="text-xl font-bold">15g</p>
                     </div>
                   </div>
                 </div>
@@ -369,6 +446,11 @@ function MealDetailsComponent() {
             <div className="md:w-1/2 bg-gray-50 p-6 md:p-8">
               <div className="bg-white rounded-xl shadow-sm p-6">
                 <h2 className="text-2xl font-bold text-gray-800 mb-6">Order Now</h2>
+                
+                {/* Price Display */}
+                <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+                  <p className="text-3xl font-bold text-blue-600">Ksh {meal.price?.toFixed(2) || '0.00'}</p>
+                </div>
                 
                 {/* Quantity Selector */}
                 <div className="mb-6">
@@ -459,64 +541,6 @@ function MealDetailsComponent() {
                           ))}
                         </select>
                       )}
-                    </div>
-
-                    {/* Additional Options */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={withFries}
-                          onChange={() => setWithFries(!withFries)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="ml-2 text-gray-700">With fries</span>
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={withSoda}
-                          onChange={() => setWithSoda(!withSoda)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="ml-2 text-gray-700">With soda</span>
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={withSalad}
-                          onChange={() => setWithSalad(!withSalad)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="ml-2 text-gray-700">With salad</span>
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={withSauce}
-                          onChange={() => setWithSauce(!withSauce)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="ml-2 text-gray-700">Extra sauce</span>
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={withChilly}
-                          onChange={() => setWithChilly(!withChilly)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="ml-2 text-gray-700">Add chilly</span>
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={withPasta}
-                          onChange={() => setWithPasta(!withPasta)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="ml-2 text-gray-700">With pasta</span>
-                      </label>
                     </div>
                   </div>
                 </div>
