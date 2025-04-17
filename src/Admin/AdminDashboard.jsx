@@ -1,5 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import RestaurantCreation from './RestaurantCreation';
+import RestaurantListing from './RestaurantListing';
+
+// Fix for default marker icons
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+});
 
 export default function AdminDashboard() {
   const [activeSection, setActiveSection] = useState('restaurants');
@@ -7,11 +20,16 @@ export default function AdminDashboard() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [location, setLocation] = useState('');
+  const [latitude, setLatitude] = useState(null);
+  const [longitude, setLongitude] = useState(null);
   const [description, setDescription] = useState('');
   const [image, setImage] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
+
+  // Default center for the map (Nairobi coordinates)
+  const defaultCenter = [-1.2921, 36.8219];
 
   useEffect(() => {
     fetchRestaurants();
@@ -33,6 +51,8 @@ export default function AdminDashboard() {
         name,
         email,
         location,
+        latitude,
+        longitude,
         description,
         image,
         username,
@@ -42,24 +62,34 @@ export default function AdminDashboard() {
       setName('');
       setEmail('');
       setLocation('');
+      setLatitude(null);
+      setLongitude(null);
       setDescription('');
       setImage('');
       setUsername('');
       setPassword('');
-      alert('Restaurant and user created successfully');
+      setMessage('Restaurant and user created successfully');
+      setActiveSection('restaurants');
     } catch (error) {
       console.error('There was an error adding the restaurant and user!', error);
+      setMessage('Error creating restaurant');
     }
   };
+
   const handleDeleteRestaurant = async (restaurantId) => {
     try {
-      await axios.delete(`http://roundhouse.proxy.rlwy.net:3000/api/restaurants/${restaurantId}`);
+      await axios.delete(`http://localhost:3000/api/restaurants/${restaurantId}`);
       setRestaurants(restaurants.filter(restaurant => restaurant.id !== restaurantId));
       setMessage('Restaurant deleted successfully');
     } catch (error) {
       console.error('Error deleting restaurant:', error);
       setMessage('Error deleting restaurant');
     }
+  };
+
+  const handleLocationSelect = async (e) => {
+    // You can implement map click handling here if needed
+    // Or keep the manual location input as is
   };
 
   return (
@@ -69,146 +99,79 @@ export default function AdminDashboard() {
           <h1 className="text-white text-2xl font-bold mb-4">Admin Dashboard</h1>
           <button
             onClick={() => setActiveSection('restaurants')}
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mb-2 w-full text-left"
+            className={`${activeSection === 'restaurants' ? 'bg-blue-700' : 'bg-blue-500'} hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mb-2 w-full text-left`}
           >
             Restaurants
           </button>
           <button
             onClick={() => setActiveSection('addRestaurant')}
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mb-2 w-full text-left"
+            className={`${activeSection === 'addRestaurant' ? 'bg-blue-700' : 'bg-blue-500'} hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mb-2 w-full text-left`}
           >
             Add Restaurant
+          </button>
+          <button
+            onClick={() => setActiveSection('mapView')}
+            className={`${activeSection === 'mapView' ? 'bg-blue-700' : 'bg-blue-500'} hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mb-2 w-full text-left`}
+          >
+            Map View
           </button>
         </div>
       </nav>
 
       <main className="flex-grow container mt-12 mx-auto p-6">
-      {message && (
+        {message && (
           <div className={`mb-4 p-4 rounded ${message.includes('Error') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
             {message}
           </div>
         )}
+
         {activeSection === 'restaurants' && (
-          <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-6xl mt-8">
-            <h2 className="text-2xl font-bold mb-4">Restaurants</h2>
-            {restaurants.map((restaurant) => (
-              <div key={restaurant.id} className="mb-4 p-4 border rounded">
-                <h3 className="text-xl font-bold mb-2">{restaurant.name}</h3>
-                <img src={restaurant.image} alt={restaurant.name} className="w-full h-48 object-cover mb-2" />
-                <p className="mb-2">Location: {restaurant.location}</p>
-                <p className="mb-2">Description: {restaurant.description}</p>
-                <button
-                onClick={() => handleDeleteRestaurant(restaurant.id)}
-                className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-              >
-                Delete
-              </button>
-              </div>
-            ))}
-          </div>
+          <RestaurantListing />
         )}
 
         {activeSection === 'addRestaurant' && (
-          <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-6xl mt-8">
-            <h2 className="text-2xl font-bold mb-4">Add a New Restaurant</h2>
-            <form onSubmit={handleAddRestaurant}>
-              <div className="mb-4">
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="name">
-                  Restaurant Name
-                </label>
-                <input
-                  type="text"
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                  required
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="email">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                  required
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="location">
-                  Location
-                </label>
-                <input
-                  type="text"
-                  id="location"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                  required
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="description">
-                  Description
-                </label>
-                <textarea
-                  id="description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                  required
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="image">
-                  Image URL
-                </label>
-                <input
-                  type="text"
-                  id="image"
-                  value={image}
-                  onChange={(e) => setImage(e.target.value)}
-                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                  required
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="username">
-                  Username
-                </label>
-                <input
-                  type="text"
-                  id="username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                  required
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="password">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  id="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                  required
-                />
-              </div>
-              <button
-                type="submit"
-                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+        <RestaurantCreation />
+        )}
+
+        {activeSection === 'mapView' && (
+          <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-6xl">
+            <h2 className="text-2xl font-bold mb-6">Restaurants Map View</h2>
+            <div className="h-96 w-full rounded-lg overflow-hidden border border-gray-300">
+              <MapContainer 
+                center={defaultCenter} 
+                zoom={13} 
+                style={{ height: '100%', width: '100%' }}
               >
-                Add Restaurant
-              </button>
-            </form>
+                <TileLayer
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                />
+                
+                {restaurants.map(restaurant => (
+                  restaurant.latitude && restaurant.longitude && (
+                    <Marker 
+                      key={restaurant.id} 
+                      position={[restaurant.latitude, restaurant.longitude]}
+                    >
+                      <Popup>
+                        <div className="max-w-xs">
+                          <h3 className="font-bold text-lg">{restaurant.name}</h3>
+                          {restaurant.image && (
+                            <img 
+                              src={restaurant.image} 
+                              alt={restaurant.name} 
+                              className="w-full h-24 object-cover mb-2"
+                            />
+                          )}
+                          <p className="text-sm">{restaurant.description}</p>
+                          <p className="text-sm text-gray-600 mt-1">{restaurant.location}</p>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  )
+                ))}
+              </MapContainer>
+            </div>
           </div>
         )}
       </main>

@@ -384,42 +384,68 @@ app.get('/createRestaurantTable', (req, res) => {
 
 
 app.post('/api/admin/addRestaurant', async (req, res) => {
-  const { name, email, location, description, image, username, password } = req.body;
-  const hashedPassword = await bcrypt.hash(password, 10);
-  const role = 'restaurant_owner';
+  const { name, email, location, latitude, longitude, description, image, username, password } = req.body;
+  
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const role = 'restaurant_owner';
 
-  db.beginTransaction((err) => {
-    if (err) throw err;
+    // Get a connection from the pool
+    const connection = await db.getConnection();
+    
+    try {
+      await connection.beginTransaction();
 
-    const addUserSql = 'INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)';
-    db.query(addUserSql, [username, email, hashedPassword, role], (err, result) => {
-      if (err) {
-        return db.rollback(() => {
-          throw err;
-        });
-      }
+      // Add user
+      const [userResult] = await connection.query(
+        'INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)',
+        [username, email, hashedPassword, role]
+      );
 
-      const userId = result.insertId;
-      const addRestaurantSql = 'INSERT INTO restaurants (name, email, location, description, image, user_id) VALUES (?, ?, ?, ?, ?, ?)';
-      db.query(addRestaurantSql, [name, email, location, description, image, userId], (err, result) => {
-        if (err) {
-          return db.rollback(() => {
-            throw err;
-          });
-        }
+      // Add restaurant
+      await connection.query(
+        'INSERT INTO restaurants (name, email, location, latitude, longitude, description, image, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [name, email, location, latitude, longitude, description, image, userResult.insertId]
+      );
 
-        db.commit((err) => {
-          if (err) {
-            return db.rollback(() => {
-              throw err;
-            });
-          }
-          res.send('Restaurant and user created successfully');
-        });
-      });
-    });
-  });
+      await connection.commit();
+      res.status(201).json({ message: 'Restaurant and user created successfully' });
+    } catch (err) {
+      await connection.rollback();
+      console.error('Transaction error:', err);
+      res.status(500).json({ error: 'Failed to create restaurant', details: err.message });
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('Server error:', error);
+    res.status(500).json({ error: 'Server error', details: error.message });
+  }
 });
+
+// Update Restaurant API Endpoint
+app.put('/api/restaurants/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name, email, location, latitude, longitude, description, image } = req.body;
+
+  try {
+    const [result] = await db.query(
+      'UPDATE restaurants SET name = ?, email = ?, location = ?, latitude = ?, longitude = ?, description = ?, image = ? WHERE id = ?',
+      [name, email, location, latitude, longitude, description, image, id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Restaurant not found' });
+    }
+
+    res.json({ message: 'Restaurant updated successfully' });
+  } catch (error) {
+    console.error('Error updating restaurant:', error);
+    res.status(500).json({ error: 'Failed to update restaurant' });
+  }
+});
+
+
 app.delete('/api/restaurants/:id', (req, res) => {
   const { id } = req.params;
 

@@ -12,23 +12,33 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
 });
 
-const LocationMarker = ({ position, setPosition, setLocationText }) => {
+const LocationMarker = ({ position, setPosition, setLocationText, setManualCoords }) => {
   const map = useMapEvents({
     click(e) {
-      setPosition(e.latlng);
+      const newPosition = e.latlng;
+      setPosition(newPosition);
+      setManualCoords({
+        latitude: newPosition.lat,
+        longitude: newPosition.lng
+      });
+      
       // Reverse geocode to get address
-      fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${e.latlng.lat}&lon=${e.latlng.lng}`)
+      fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${newPosition.lat}&lon=${newPosition.lng}`)
         .then(response => response.json())
         .then(data => {
-          const address = data.display_name || `${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`;
+          const address = data.display_name || `${newPosition.lat.toFixed(6)}, ${newPosition.lng.toFixed(6)}`;
           setLocationText(address);
+        })
+        .catch(error => {
+          console.error('Geocoding error:', error);
+          setLocationText(`${newPosition.lat.toFixed(6)}, ${newPosition.lng.toFixed(6)}`);
         });
     },
   });
 
   return position === null ? null : (
     <Marker position={position}>
-      <Popup>Restaurant location</Popup>
+      <Popup>Selected Restaurant Location</Popup>
     </Marker>
   );
 };
@@ -38,6 +48,10 @@ export default function RestaurantCreation() {
   const [email, setEmail] = useState('');
   const [location, setLocation] = useState('');
   const [position, setPosition] = useState(null);
+  const [manualCoords, setManualCoords] = useState({
+    latitude: '',
+    longitude: ''
+  });
   const [description, setDescription] = useState('');
   const [image, setImage] = useState('');
   const [username, setUsername] = useState('');
@@ -45,28 +59,74 @@ export default function RestaurantCreation() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Default center for the map (you can set this to your preferred location)
-  const defaultCenter = [ -1.2921, 36.8219 ]; // Nairobi coordinates
+  // Default center for the map (Nairobi coordinates)
+  const defaultCenter = [-1.2921, 36.8219];
+
+  // Validate coordinates input
+  const validateCoordinates = (lat, lng) => {
+    const latFloat = parseFloat(lat);
+    const lngFloat = parseFloat(lng);
+    return (
+      !isNaN(latFloat) && latFloat >= -90 && latFloat <= 90 &&
+      !isNaN(lngFloat) && lngFloat >= -180 && lngFloat <= 180
+    );
+  };
+
+  // Handle manual coordinate changes
+  const handleManualCoordChange = (e, field) => {
+    const value = e.target.value;
+    setManualCoords(prev => ({
+      ...prev,
+      [field]: value
+    }));
+
+    // If both coordinates are valid, update the position
+    if (validateCoordinates(
+      field === 'latitude' ? value : manualCoords.latitude,
+      field === 'longitude' ? value : manualCoords.longitude
+    )) {
+      const lat = field === 'latitude' ? parseFloat(value) : parseFloat(manualCoords.latitude);
+      const lng = field === 'longitude' ? parseFloat(value) : parseFloat(manualCoords.longitude);
+      setPosition({ lat, lng });
+      
+      // Update the location text
+      setLocation(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
-
+  
+    // Validate position
+    if (!position) {
+      setError('Please select a location for the restaurant');
+      setIsLoading(false);
+      return;
+    }
+  
     try {
+      console.log('Submitting restaurant data...'); // Debug log
       const restaurantData = {
         name,
         email,
         location,
-        latitude: position?.lat || null,
-        longitude: position?.lng || null,
+        latitude: position.lat,
+        longitude: position.lng,
         description,
         image,
         username,
         password,
       };
-
-      await axios.post('http://localhost:3000/api/admin/addRestaurant', restaurantData);
+  
+      console.log('Request payload:', restaurantData); // Debug log
+  
+      const response = await axios.post('http://localhost:3000/api/admin/addRestaurant', restaurantData, {
+        timeout: 10000 // 10 second timeout
+      });
+  
+      console.log('Response received:', response.data); // Debug log
       alert('Restaurant and user created successfully');
       
       // Reset form
@@ -74,13 +134,32 @@ export default function RestaurantCreation() {
       setEmail('');
       setLocation('');
       setPosition(null);
+      setManualCoords({ latitude: '', longitude: '' });
       setDescription('');
       setImage('');
       setUsername('');
       setPassword('');
     } catch (error) {
-      console.error('Error adding restaurant:', error);
-      setError(error.response?.data?.message || 'Failed to create restaurant');
+      console.error('Full error object:', error); // Debug log
+      
+      let errorMessage = 'Failed to create restaurant';
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        console.error('Response data:', error.response.data);
+        console.error('Response status:', error.response.status);
+        console.error('Response headers:', error.response.headers);
+        errorMessage = error.response.data?.error || error.response.data?.message || errorMessage;
+      } else if (error.request) {
+        // The request was made but no response was received
+        console.error('No response received:', error.request);
+        errorMessage = 'No response from server - check your network connection';
+      } else {
+        // Something happened in setting up the request
+        console.error('Request setup error:', error.message);
+        errorMessage = error.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -125,7 +204,7 @@ export default function RestaurantCreation() {
               
               <div>
                 <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="location">
-                  Location (Click on the map to select)
+                  Location Address
                 </label>
                 <input
                   type="text"
@@ -134,8 +213,42 @@ export default function RestaurantCreation() {
                   onChange={(e) => setLocation(e.target.value)}
                   className="shadow appearance-none border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                   required
-                  readOnly
                 />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="latitude">
+                    Latitude
+                  </label>
+                  <input
+                    type="number"
+                    id="latitude"
+                    step="0.000001"
+                    value={manualCoords.latitude}
+                    onChange={(e) => handleManualCoordChange(e, 'latitude')}
+                    className="shadow appearance-none border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                    placeholder="e.g., -1.2921"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="longitude">
+                    Longitude
+                  </label>
+                  <input
+                    type="number"
+                    id="longitude"
+                    step="0.000001"
+                    value={manualCoords.longitude}
+                    onChange={(e) => handleManualCoordChange(e, 'longitude')}
+                    className="shadow appearance-none border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                    placeholder="e.g., 36.8219"
+                  />
+                </div>
+              </div>
+              
+              <div className="text-sm text-gray-600">
+                <p>Tip: You can either click on the map or manually enter coordinates above.</p>
               </div>
               
               <div>
@@ -224,8 +337,14 @@ export default function RestaurantCreation() {
                 position={position} 
                 setPosition={setPosition}
                 setLocationText={setLocation}
+                setManualCoords={setManualCoords}
               />
             </MapContainer>
+            {position && (
+              <div className="bg-gray-50 p-2 text-sm text-center">
+                Selected Coordinates: {position.lat.toFixed(6)}, {position.lng.toFixed(6)}
+              </div>
+            )}
           </div>
         </div>
       </div>
