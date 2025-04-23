@@ -29,7 +29,7 @@ const RestaurantListing = () => {
 
   const fetchRestaurants = async () => {
     try {
-      const response = await axios.get('http://localhost:3000/api/restaurants');
+      const response = await axios.get('http://192.168.137.1:3000/api/restaurants');
       setRestaurants(response.data);
     } catch (err) {
       setError(err.message);
@@ -40,7 +40,7 @@ const RestaurantListing = () => {
 
   const handleDeleteRestaurant = async (restaurantId) => {
     try {
-      await axios.delete(`http://localhost:3000/api/restaurants/${restaurantId}`);
+      await axios.delete(`http://192.168.137.1:3000/api/restaurants/${restaurantId}`);
       setRestaurants(restaurants.filter(restaurant => restaurant.id !== restaurantId));
     } catch (error) {
       console.error('Error deleting restaurant:', error);
@@ -74,7 +74,7 @@ const RestaurantListing = () => {
     e.preventDefault();
     try {
       await axios.put(
-        `http://localhost:3000/api/restaurants/${editingRestaurant.id}`,
+        `http://192.168.137.1:3000/api/restaurants/${editingRestaurant.id}`,
         formData
       );
       

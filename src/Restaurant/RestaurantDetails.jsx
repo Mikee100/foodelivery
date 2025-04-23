@@ -43,8 +43,8 @@ export default function RestaurantDetails() {
       try {
         setLoading(true);
         const [restaurantRes, mealsRes] = await Promise.all([
-          axios.get(`http://localhost:3000/api/restaurants/${id}`),
-          axios.get(`http://localhost:3000/api/restaurants/${id}/meals`)
+          axios.get(`http://192.168.137.1:3000/api/restaurants/${id}`),
+          axios.get(`http://192.168.137.1:3000/api/restaurants/${id}/meals`)
         ]);
 
         setRestaurant({

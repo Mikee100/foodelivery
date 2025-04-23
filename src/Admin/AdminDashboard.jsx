@@ -37,7 +37,7 @@ export default function AdminDashboard() {
 
   const fetchRestaurants = async () => {
     try {
-      const response = await axios.get('http://localhost:3000/api/restaurants');
+      const response = await axios.get('http://192.168.137.1:3000/api/restaurants');
       setRestaurants(response.data);
     } catch (error) {
       console.error('Error fetching restaurants:', error);
@@ -47,7 +47,7 @@ export default function AdminDashboard() {
   const handleAddRestaurant = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('http://localhost:3000/api/admin/addRestaurant', {
+      await axios.post('http://192.168.137.1:3000/api/admin/addRestaurant', {
         name,
         email,
         location,
@@ -78,7 +78,7 @@ export default function AdminDashboard() {
 
   const handleDeleteRestaurant = async (restaurantId) => {
     try {
-      await axios.delete(`http://localhost:3000/api/restaurants/${restaurantId}`);
+      await axios.delete(`http://192.168.137.1:3000/api/restaurants/${restaurantId}`);
       setRestaurants(restaurants.filter(restaurant => restaurant.id !== restaurantId));
       setMessage('Restaurant deleted successfully');
     } catch (error) {

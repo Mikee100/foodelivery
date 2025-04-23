@@ -18,6 +18,7 @@ import {
 import { FaHeart, FaWhatsapp, FaFacebook, FaTwitter, FaUtensils } from 'react-icons/fa';
 import { GiMeal, GiHotMeal } from 'react-icons/gi';
 import { MdDeliveryDining } from 'react-icons/md';
+import DeliveryMap from './DeliveryMap';
 
 const stripePromise = loadStripe('your-stripe-public-key');
 
@@ -39,7 +40,9 @@ function MealDetailsComponent() {
   const [addDrink, setAddDrink] = useState(false);
   const stripe = useStripe();
   const elements = useElements();
-
+  const [deliveryFee, setDeliveryFee] = useState(50);
+  const [deliveryTime, setDeliveryTime] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
   // Available drink options
   const drinkOptions = [
     'Water',
@@ -55,7 +58,7 @@ function MealDetailsComponent() {
     const fetchMealDetails = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`http://localhost:3000/api/meals/${id}`);
+        const response = await axios.get(`http://192.168.137.1:3000/api/meals/${id}`);
         
         if (response.data.success) {
           setMeal(response.data.data);
@@ -77,8 +80,8 @@ function MealDetailsComponent() {
   console.log("my meal:", meal);
   const calculateTotal = () => {
     const basePrice = meal?.price || 0;
-    const deliveryFee = deliveryOption === 'delivery' ? 50 : 0;
-    return (basePrice * quantity + deliveryFee).toFixed(2);
+    const currentDeliveryFee = deliveryOption === 'delivery' ? deliveryFee : 0;
+    return (basePrice * quantity + currentDeliveryFee).toFixed(2);
   };
 
   // Add this near your other imports
@@ -103,6 +106,7 @@ if (!meal?.restaurant_id) {
     </div>
   );
 }
+
 // Modify your handlePlaceOrder function:
 const handlePlaceOrder = async (paymentMethod) => {
   try {
@@ -138,7 +142,7 @@ const handlePlaceOrder = async (paymentMethod) => {
 
     // 4. API Call
     const response = await axios.post(
-      'http://localhost:3000/api/orders', 
+      'http://192.168.137.1:3000/api/orders', 
       orderData, 
       config
     );
@@ -197,7 +201,7 @@ const handleMpesaPayment = async () => {
     }
 
     // Initiate M-Pesa payment
-    const paymentResponse = await axios.post('http://localhost:3000/api/mpesa', {
+    const paymentResponse = await axios.post('http://192.168.137.1:3000/api/mpesa', {
       phoneNumber,
       amount: Math.floor(amount),
       order_id: order.orderId // Use orderId instead of id
@@ -233,7 +237,7 @@ const handleMpesaPayment = async () => {
   
       if (error) throw error;
   
-      const response = await axios.post('http://localhost:3000/api/stripe', {
+      const response = await axios.post('http://192.168.137.1:3000/api/stripe', {
         amount: calculateTotal() * 100,
         currency: 'usd',
         payment_method: paymentMethod.id,
@@ -473,23 +477,52 @@ const handleMpesaPayment = async () => {
                 </div>
 
                 {/* Delivery Options */}
-                <div className="mb-6">
-                  <label className="block text-gray-700 font-medium mb-2">Delivery Option</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      onClick={() => setDeliveryOption('delivery')}
-                      className={`py-2 px-4 rounded-lg border ${deliveryOption === 'delivery' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-300 hover:border-blue-300'}`}
-                    >
-                      Delivery (+Ksh 50)
-                    </button>
-                    <button
-                      onClick={() => setDeliveryOption('pickup')}
-                      className={`py-2 px-4 rounded-lg border ${deliveryOption === 'pickup' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-300 hover:border-blue-300'}`}
-                    >
-                      Pickup
-                    </button>
-                  </div>
-                </div>
+               {/* Replace the existing delivery options section with this: */}
+<div className="mb-6">
+  <label className="block text-gray-700 font-medium mb-2">Delivery Option</label>
+  <div className="grid grid-cols-2 gap-3 mb-4">
+    <button
+      onClick={() => setDeliveryOption('delivery')}
+      className={`py-2 px-4 rounded-lg border ${deliveryOption === 'delivery' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-300 hover:border-blue-300'}`}
+    >
+      Delivery
+    </button>
+    <button
+      onClick={() => setDeliveryOption('pickup')}
+      className={`py-2 px-4 rounded-lg border ${deliveryOption === 'pickup' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-300 hover:border-blue-300'}`}
+    >
+      Pickup
+    </button>
+  </div>
+
+  {deliveryOption === 'delivery' && (
+    <div className="space-y-4">
+      {/* Delivery Map Component */}
+      <DeliveryMap 
+        restaurantPosition={meal.restaurantLocation || [-1.2921, 36.8219]} // Pass restaurant coordinates
+        onDeliveryCalculated={({ fee, time, userPosition }) => {
+          setDeliveryFee(fee);
+          setDeliveryTime(time);
+          setUserLocation(userPosition);
+        }}
+        baseDeliveryFee={50}
+        deliveryRatePerKm={10}
+      />
+
+      {/* Delivery Address */}
+      <div>
+        <label className="block text-gray-700 font-medium mb-2">Delivery Address</label>
+        <input
+          type="text"
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          placeholder="Enter your delivery address"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+    </div>
+  )}
+</div>
 
                 {/* Delivery Address (shown only for delivery) */}
                 {deliveryOption === 'delivery' && (

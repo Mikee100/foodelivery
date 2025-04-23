@@ -122,7 +122,7 @@ export default function RestaurantCreation() {
   
       console.log('Request payload:', restaurantData); // Debug log
   
-      const response = await axios.post('http://localhost:3000/api/admin/addRestaurant', restaurantData, {
+      const response = await axios.post('http://192.168.137.1:3000/api/admin/addRestaurant', restaurantData, {
         timeout: 10000 // 10 second timeout
       });
   

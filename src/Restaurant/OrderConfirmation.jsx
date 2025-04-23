@@ -29,7 +29,7 @@ export default function OrderConfirmation() {
     const fetchOrderDetails = async () => {
       try {
         const token = sessionStorage.getItem('token');
-        const response = await axios.get(`http://localhost:3000/api/orders/${orderId}`, {
+        const response = await axios.get(`http://192.168.137.1:3000/api/orders/${orderId}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }

@@ -26,7 +26,7 @@ app.use(bodyParser.json());
 app.use(cors());
 const port = 3000;
 const db = mysql.createPool({
-  host: 'localhost',          // Tunnel endpoint
+  host: '192.168.137.1',          // Tunnel endpoint
   user: 'root',
   password: '10028mike.',
   database: 'food_delivery',  // or 'railway' — check your schema name

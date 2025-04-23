@@ -22,7 +22,7 @@ export default function MainPage() {
     const fetchRestaurants = async () => {
       try {
         setIsLoading(true);
-        const response = await axios.get('http://localhost:3000/api/restaurants');
+        const response = await axios.get('http://192.168.137.1:3000/api/restaurants');
         // Ensure each restaurant has required fields with defaults
         const restaurantsWithDefaults = response.data.map(restaurant => ({
           id: restaurant.id || '',
