@@ -20,16 +20,33 @@ export default function ManageMeals() {
 
   const fetchMeals = async () => {
     const restaurantId = localStorage.getItem('restaurantId');
+    const token = localStorage.getItem('token');
+
+    console.log('ManageMeals Debug:', {
+      restaurantId,
+      token: token ? 'Token exists' : 'No token'
+    });
+
     if (!restaurantId) {
       console.error('Restaurant ID not found in localStorage');
       return;
     }
 
+    if (!token) {
+      console.error('Authentication token not found in localStorage');
+      return;
+    }
+
     try {
-      const response = await axios.get(`http://roundhouse.proxy.rlwy.net:3000/api/restaurants/${restaurantId}/meals`);
+      const response = await axios.get(`http://localhost:3000/api/restaurants/${restaurantId}/meals`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      console.log('Meals response:', response.data);
       setMeals(response.data);
     } catch (error) {
-      console.error('Error fetching meals:', error);
+      console.error('Error fetching meals:', error.response || error);
     }
   };
 
@@ -41,7 +58,7 @@ export default function ManageMeals() {
     }
 
     try {
-      const response = await axios.get(`http://roundhouse.proxy.rlwy.net:3000/api/restaurants/${restaurantId}/categories`);
+      const response = await axios.get(`http://localhost:3000/api/restaurants/${restaurantId}/categories`);
       setCategories(response.data);
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -52,7 +69,7 @@ export default function ManageMeals() {
     e.preventDefault();
     const restaurant_id = localStorage.getItem('restaurantId');
     try {
-      await axios.post('http://roundhouse.proxy.rlwy.net:3000/api/meals', {
+      await axios.post('http://localhost:3000/api/meals', {
         name: mealName,
         image: mealImage,
         description: mealDescription,

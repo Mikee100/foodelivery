@@ -7,7 +7,7 @@ export default function UserDetails() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const userId = localStorage.getItem('userId'); // Assuming user ID is stored in local storage
+  const userId = sessionStorage.getItem('userId'); // Assuming user ID is stored in local storage
 
   useEffect(() => {
     fetchUserDetails();
@@ -15,7 +15,7 @@ export default function UserDetails() {
 
   const fetchUserDetails = async () => {
     try {
-      const response = await axios.get(`http://roundhouse.proxy.rlwy.net:3000/api/users/${userId}`);
+      const response = await axios.get(`http://localhost:3000/api/users/${userId}`);
       setUser(response.data);
     } catch (error) {
       console.error('Error fetching user details:', error);

@@ -90,7 +90,7 @@ const OrderForm = ({ meal, totalAmount }) => {
 
     try {
       // First create the order
-      const orderResponse = await axios.post('http://192.168.137.1:3000/api/orders', {
+      const orderResponse = await axios.post('http://localhost:3000/api/orders', {
         userId,
         mealId: meal.id,
         restaurantId: meal.restaurant_id,
@@ -134,7 +134,7 @@ const OrderForm = ({ meal, totalAmount }) => {
 
   const handleMpesaPayment = async (orderNumber) => {
     try {
-      await axios.post('http://192.168.137.1:3000/api/mpesa', {
+      await axios.post('http://localhost:3000/api/mpesa', {
         phoneNumber: formData.phoneNumber,
         amount: totalAmount,
         orderNumber
@@ -159,7 +159,7 @@ const OrderForm = ({ meal, totalAmount }) => {
       throw new Error(error.message);
     }
 
-    await axios.post('http://192.168.137.1:3000/api/stripe', {
+    await axios.post('http://localhost:3000/api/stripe', {
       paymentMethodId: paymentMethod.id,
       amount: totalAmount * 100, // Convert to cents
       orderNumber,

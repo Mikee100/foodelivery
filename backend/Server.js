@@ -1,5 +1,5 @@
 const express = require('express');
-const mysql = require('mysql2/promise');
+const mysql = require('mysql2');
 const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
@@ -26,10 +26,10 @@ app.use(bodyParser.json());
 app.use(cors());
 const port = 3000;
 const db = mysql.createPool({
-  host: '192.168.137.1',          // Tunnel endpoint
-  user: 'root',
-  password: '10028mike.',
-  database: 'food_delivery',  // or 'railway' — check your schema name
+  host:'localhost',          // Tunnel endpoint
+  user:'root',
+  password:'10028mike.',
+  database:'food_delivery',  // or 'railway' — check your schema name
  
   waitForConnections: true,
   connectionLimit: 10,
@@ -40,15 +40,14 @@ const db = mysql.createPool({
 
 
 // Connect to MySQL
-async function testConnection() {
-  try {
-    const connection = await db.getConnection();
+function testConnection() {
+  db.query('SELECT 1', (err, result) => {
+    if (err) {
+      console.error('MySQL connection failed:', err);
+      process.exit(1); // Exit if connection fails
+    }
     console.log('MySQL connected...');
-    connection.release(); // Release the connection back to the pool
-  } catch (err) {
-    console.error('MySQL connection failed:', err);
-    process.exit(1); // Exit if connection fails
-  }
+  });
 }
 
 testConnection();
@@ -70,7 +69,7 @@ app.post('/api/upload', upload.single('image'), (req, res) => {
   if (!req.file) {
     return res.status(400).send('No file uploaded.');
   }
-  const imageUrl = `http://roundhouse.proxy.rlwy.net:${port}/uploads/${req.file.filename}`;
+  const imageUrl = `http://localhost:${port}/uploads/${req.file.filename}`;
   res.send({ imageUrl });
 });
 
@@ -367,6 +366,15 @@ const authenticate = (req, res, next) => {
 app.get('/api/protected', authenticate, (req, res) => {
   res.send('This is a protected route');
 });
+
+// Test endpoint to check if backend is working
+app.get('/api/test', (req, res) => {
+  res.json({ 
+    message: 'Backend is working',
+    timestamp: new Date().toISOString(),
+    status: 'ok'
+  });
+});
 app.get('/createRestaurantTable', (req, res) => {
   let sql = `CREATE TABLE restaurants (
     id INT AUTO_INCREMENT,
@@ -501,12 +509,16 @@ app.get('/api/restaurants/:id', async (req, res) => {
 
 app.get('/api/restaurants/:id/meals', async (req, res) => {
   try {
+    console.log('Fetching meals for restaurant ID:', req.params.id);
+    
     const [results] = await db.query(`
       SELECT meals.*, categories.name AS category_name
       FROM meals
       LEFT JOIN categories ON meals.category_id = categories.id
       WHERE meals.restaurant_id = ?
     `, [req.params.id]);
+
+    console.log('Meals query results:', results.length, 'meals found');
 
     if (!results || results.length === 0) {
       return res.status(404).json({ 
@@ -515,10 +527,10 @@ app.get('/api/restaurants/:id/meals', async (req, res) => {
       });
     }
 
-    return res.json(results); // Only one response is sent
+    return res.json(results);
     
   } catch (err) {
-    console.error('Database error:', err);
+    console.error('Database error in meals endpoint:', err);
     return res.status(500).json({ 
       error: 'Failed to fetch meals',
       details: process.env.NODE_ENV === 'development' ? err.message : undefined
@@ -876,7 +888,7 @@ app.put('/api/orders/:id/status', (req, res) => {
   });
 });
 // Fetch delivered orders for a specific restaurant
-app.get('/api/processedorders/processed', (req, res) => {
+app.get('/api/processedorders/processed', async (req, res) => {
   const { restaurantId } = req.query; // Get the restaurantId from the query parameter
 
   if (!restaurantId) {
@@ -884,13 +896,13 @@ app.get('/api/processedorders/processed', (req, res) => {
   }
 
   const sql = 'SELECT * FROM orders WHERE restaurant_id = ? AND status = "Delivered"';
-  db.query(sql, [restaurantId], (err, result) => {
-    if (err) {
-      console.error('Error fetching delivered orders:', err);
-      return res.status(500).send('Error fetching delivered orders');
-    }
-    res.json(result); // Ensure the response is an array
-  });
+  try {
+    const [result] = await db.query(sql, [restaurantId]);
+    res.json(result);
+  } catch (err) {
+    console.error('Error fetching delivered orders:', err);
+    return res.status(500).send('Error fetching delivered orders');
+  }
 });
 app.post('/api/categories', (req, res) => {
   const { name, restaurantId } = req.body;
@@ -904,16 +916,16 @@ app.post('/api/categories', (req, res) => {
   });
 });
 
-app.get('/api/restaurants/:restaurantId/categories', (req, res) => {
+app.get('/api/restaurants/:restaurantId/categories', async (req, res) => {
   const { restaurantId } = req.params;
   const sql = 'SELECT * FROM categories WHERE restaurant_id = ?';
-  db.query(sql, [restaurantId], (err, result) => {
-    if (err) {
-      console.error('Error fetching categories:', err);
-      return res.status(500).send('Error fetching categories');
-    }
-    res.send(result);
-  });
+  try {
+    const [result] = await db.query(sql, [restaurantId]);
+    res.json(result);
+  } catch (err) {
+    console.error('Error fetching categories:', err);
+    return res.status(500).send('Error fetching categories');
+  }
 });
 
 
@@ -928,18 +940,24 @@ app.post('/api/meals', (req, res) => {
 });
 
 // GET endpoint to fetch all meals
-app.get('/api/meals', (req, res) => {
+app.get('/api/meals', async (req, res) => {
   let sql = 'SELECT * FROM meals';
-  db.query(sql, (err, results) => {
-    if (err) throw err;
+  try {
+    const [results] = await db.query(sql);
     res.json(results);
-  });
+  } catch (err) {
+    console.error('Error fetching meals:', err);
+    res.status(500).json({ error: 'Error fetching meals' });
+  }
 });
 
 app.get('/api/orders', (req, res) => {
   const { restaurantId } = req.query; // Get the restaurantId from the query parameter
 
+  console.log('Orders endpoint called with restaurantId:', restaurantId);
+
   if (!restaurantId) {
+    console.error('Restaurant ID is required but not provided');
     return res.status(400).send('Restaurant ID is required');
   }
 
@@ -949,9 +967,17 @@ app.get('/api/orders', (req, res) => {
     JOIN meals ON orders.meal_id = meals.id
     WHERE orders.restaurant_id = ?
   `;
+  
+  console.log('Executing orders query for restaurantId:', restaurantId);
+  
   db.query(sql, [restaurantId], (err, result) => {
-    if (err) throw err;
-    res.send(result);
+    if (err) {
+      console.error('Database error in orders endpoint:', err);
+      return res.status(500).json({ error: 'Database error', details: err.message });
+    }
+    
+    console.log('Orders query results:', result.length, 'orders found');
+    res.json(result);
   });
 });
 app.put('/api/updatemeals/:id', (req, res) => {
@@ -1064,13 +1090,16 @@ app.put('/api/orders/:id/dispatch', (req, res) => {
   });
 });
 
-app.get('/api/restaurants/:restaurantId/delivery-persons', (req, res) => {
+app.get('/api/restaurants/:restaurantId/delivery-persons', async (req, res) => {
   const { restaurantId } = req.params;
   let sql = 'SELECT * FROM delivery_persons WHERE restaurant_id = ?';
-  db.query(sql, [restaurantId], (err, results) => {
-    if (err) throw err;
+  try {
+    const [results] = await db.query(sql, [restaurantId]);
     res.json(results);
-  });
+  } catch (err) {
+    console.error('Error fetching delivery persons:', err);
+    res.status(500).json({ error: 'Error fetching delivery persons' });
+  }
 });
 
 app.get('/api/restaurants/:restaurantId/meals', (req, res) => {

@@ -21,6 +21,13 @@ import UserOrders from './User/UserOrders';
 import UserDetails from './User/UserDetails';
 import OrderConfirmation from './Restaurant/OrderConfirmation';
 
+// Import new owner pages
+import MealsPage from './Owner/MealsPage';
+import OrdersPage from './Owner/OrdersPage';
+import DeliveryPersonsPage from './Owner/DeliveryPersonsPage';
+import ProcessedOrdersPage from './Owner/ProcessedOrdersPage';
+import CategoriesPage from './Owner/CategoriesPage';
+
 const PrivateRoute = ({ children, role }) => {
   const userRole = localStorage.getItem('role');
   return userRole === role ? children : <Navigate to="/login" />;
@@ -46,6 +53,11 @@ function App() {
         <Route path="/admin/restaurant/:restaurantId/orders" element={<PrivateRoute role="restaurant_owner"><ManageOrders /></PrivateRoute>} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="/owner/dashboard" element={<OwnerDashboard />} />
+        <Route path="/owner/meals" element={<PrivateRoute role="restaurant_owner"><MealsPage /></PrivateRoute>} />
+        <Route path="/owner/orders" element={<PrivateRoute role="restaurant_owner"><OrdersPage /></PrivateRoute>} />
+        <Route path="/owner/delivery-persons" element={<PrivateRoute role="restaurant_owner"><DeliveryPersonsPage /></PrivateRoute>} />
+        <Route path="/owner/processed-orders" element={<PrivateRoute role="restaurant_owner"><ProcessedOrdersPage /></PrivateRoute>} />
+        <Route path="/owner/categories" element={<PrivateRoute role="restaurant_owner"><CategoriesPage /></PrivateRoute>} />
         <Route path="/delivery/dashboard" element={<DeliveryDashboard />} />
         <Route path="/user/dashboard" element={<UserDashboard />} />
         <Route path="/search" element={<SearchResults />} />

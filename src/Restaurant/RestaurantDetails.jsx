@@ -32,7 +32,7 @@ export default function RestaurantDetails() {
   // Scroll listener for header effect
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 100);
+      setIsScrolled(window.scrollY > 20);
     };
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
@@ -43,8 +43,8 @@ export default function RestaurantDetails() {
       try {
         setLoading(true);
         const [restaurantRes, mealsRes] = await Promise.all([
-          axios.get(`http://192.168.137.1:3000/api/restaurants/${id}`),
-          axios.get(`http://192.168.137.1:3000/api/restaurants/${id}/meals`)
+          axios.get(`http://localhost:3000/api/restaurants/${id}`),
+          axios.get(`http://localhost:3000/api/restaurants/${id}/meals`)
         ]);
 
         setRestaurant({
@@ -180,7 +180,7 @@ export default function RestaurantDetails() {
     <div className="bg-gray-50">
       {/* Sticky Header (appears on scroll) */}
       <div className={`fixed top-0 left-0 right-0 bg-white shadow-md z-50 transition-all duration-300 ${isScrolled ? 'translate-y-0' : '-translate-y-full'}`}>
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <button onClick={() => navigate(-1)} className="text-gray-700">
             <FiArrowLeft className="text-xl" />
           </button>
@@ -259,7 +259,7 @@ export default function RestaurantDetails() {
   <span>{restaurant.delivery_available ? 'Delivery' : 'Pickup Only'}</span>
 </div>
 
-// If using Option 3:
+
 <div className="flex items-center bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full">
   {restaurant.delivery_available ? (
     <MdDeliveryDining className="mr-2 text-green-400" />

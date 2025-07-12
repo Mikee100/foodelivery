@@ -40,9 +40,12 @@ function MealDetailsComponent() {
   const [addDrink, setAddDrink] = useState(false);
   const stripe = useStripe();
   const elements = useElements();
-  const [deliveryFee, setDeliveryFee] = useState(50);
-  const [deliveryTime, setDeliveryTime] = useState(null);
+  const [deliveryFee, setDeliveryFee] = useState(50); // Default fee
+  const [deliveryTime, setDeliveryTime] = useState(30); // Default time in minutes
+  const [distance, setDistance] = useState(0); // Distance in km
   const [userLocation, setUserLocation] = useState(null);
+  const [deliveryCalculated, setDeliveryCalculated] = useState(false);
+  const [isGeocoding, setIsGeocoding] = useState(false);
   // Available drink options
   const drinkOptions = [
     'Water',
@@ -58,10 +61,12 @@ function MealDetailsComponent() {
     const fetchMealDetails = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`http://192.168.137.1:3000/api/meals/${id}`);
+        const response = await axios.get(`http://localhost:3000/api/meals/${id}`);
         
         if (response.data.success) {
           setMeal(response.data.data);
+          console.log('Meal data loaded:', response.data.data);
+          console.log('Restaurant location from meal:', response.data.data.restaurantLocation);
           // Set default values based on meal data
           setIsSpicy(response.data.data.name?.toLowerCase().includes('spicy') || false);
         } else {
@@ -77,15 +82,37 @@ function MealDetailsComponent() {
     fetchMealDetails();
   }, [id]);
 
-  console.log("my meal:", meal);
+ 
   const calculateTotal = () => {
     const basePrice = meal?.price || 0;
     const currentDeliveryFee = deliveryOption === 'delivery' ? deliveryFee : 0;
     return (basePrice * quantity + currentDeliveryFee).toFixed(2);
   };
 
+  // Get delivery status message
+  const getDeliveryStatusMessage = () => {
+    if (deliveryOption === 'pickup') {
+      return 'Pickup from restaurant';
+    }
+    if (!deliveryCalculated) {
+      return 'Set your delivery location on the map';
+    }
+    if (distance > 20) {
+      return 'Delivery distance is too far';
+    }
+    return `Delivery to your location (${distance.toFixed(1)} km away)`;
+  };
+
+  // Get delivery status color
+  const getDeliveryStatusColor = () => {
+    if (deliveryOption === 'pickup') return 'text-green-600';
+    if (!deliveryCalculated) return 'text-yellow-600';
+    if (distance > 20) return 'text-red-600';
+    return 'text-green-600';
+  };
+
   // Add this near your other imports
-// Add this check before rendering the order form
+  // Add this check before rendering the order form
 if (!meal?.restaurant_id) {
   return (
     <div className="p-4 bg-red-50 text-red-800 rounded-lg border border-red-200 my-4">
@@ -106,6 +133,27 @@ if (!meal?.restaurant_id) {
     </div>
   );
 }
+
+  // Enhanced delivery calculation handler
+  const handleDeliveryCalculated = ({ distance, fee, time, userPosition, isValid }) => {
+    console.log('Delivery calculated:', { distance, fee, time, userPosition, isValid });
+    setDistance(distance);
+    setDeliveryFee(fee);
+    setDeliveryTime(time);
+    setUserLocation(userPosition);
+    setDeliveryCalculated(isValid);
+  };
+
+  // Handle address updates from map
+  const handleAddressUpdate = (newAddress) => {
+    setAddress(newAddress);
+    setIsGeocoding(false);
+  };
+
+  // Handle geocoding start
+  const handleGeocodingStart = () => {
+    setIsGeocoding(true);
+  };
 
 // Modify your handlePlaceOrder function:
 const handlePlaceOrder = async (paymentMethod) => {
@@ -142,7 +190,7 @@ const handlePlaceOrder = async (paymentMethod) => {
 
     // 4. API Call
     const response = await axios.post(
-      'http://192.168.137.1:3000/api/orders', 
+      'http://localhost:3000/api/orders', 
       orderData, 
       config
     );
@@ -191,6 +239,16 @@ const handleMpesaPayment = async () => {
       throw new Error('Please enter a valid Kenyan phone number (e.g. 07XXXXXXXX or 2547XXXXXXXX)');
     }
 
+    // Validate delivery distance
+    if (deliveryOption === 'delivery' && distance > 20) {
+      throw new Error('Delivery distance is too far. Please choose a closer location or select pickup.');
+    }
+
+    // Validate delivery location is set
+    if (deliveryOption === 'delivery' && !deliveryCalculated) {
+      throw new Error('Please set your delivery location on the map first.');
+    }
+
     // First create the order
     const order = await handlePlaceOrder('mpesa');
     
@@ -201,7 +259,7 @@ const handleMpesaPayment = async () => {
     }
 
     // Initiate M-Pesa payment
-    const paymentResponse = await axios.post('http://192.168.137.1:3000/api/mpesa', {
+    const paymentResponse = await axios.post('http://localhost:3000/api/mpesa', {
       phoneNumber,
       amount: Math.floor(amount),
       order_id: order.orderId // Use orderId instead of id
@@ -228,6 +286,16 @@ const handleMpesaPayment = async () => {
     if (!stripe || !elements) return;
   
     try {
+      // Validate delivery distance
+      if (deliveryOption === 'delivery' && distance > 20) {
+        throw new Error('Delivery distance is too far. Please choose a closer location or select pickup.');
+      }
+
+      // Validate delivery location is set
+      if (deliveryOption === 'delivery' && !deliveryCalculated) {
+        throw new Error('Please set your delivery location on the map first.');
+      }
+
       const order = await handlePlaceOrder('card');
       
       const { error, paymentMethod } = await stripe.createPaymentMethod({
@@ -237,7 +305,7 @@ const handleMpesaPayment = async () => {
   
       if (error) throw error;
   
-      const response = await axios.post('http://192.168.137.1:3000/api/stripe', {
+      const response = await axios.post('http://localhost:3000/api/stripe', {
         amount: calculateTotal() * 100,
         currency: 'usd',
         payment_method: paymentMethod.id,
@@ -301,7 +369,7 @@ const handleMpesaPayment = async () => {
   if (!meal) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 pt-20 pb-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 pt-20 pb-12 px-4 sm:px-6 lg:px-8 relative" style={{ zIndex: 1 }}>
       {/* Back Button */}
       <div className="container mx-auto mb-6">
         <button
@@ -313,8 +381,8 @@ const handleMpesaPayment = async () => {
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto">
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden max-w-6xl mx-auto">
+      <div className="container mx-auto relative z-10">
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden max-w-6xl mx-auto relative">
           {/* Meal Header */}
           <div className="relative">
             <img
@@ -447,8 +515,8 @@ const handleMpesaPayment = async () => {
             </div>
 
             {/* Right Column - Order Form */}
-            <div className="md:w-1/2 bg-gray-50 p-6 md:p-8">
-              <div className="bg-white rounded-xl shadow-sm p-6">
+            <div className="md:w-1/2 bg-gray-50 p-6 md:p-8 overflow-hidden">
+              <div className="bg-white rounded-xl shadow-sm p-6 overflow-hidden">
                 <h2 className="text-2xl font-bold text-gray-800 mb-6">Order Now</h2>
                 
                 {/* Price Display */}
@@ -496,30 +564,44 @@ const handleMpesaPayment = async () => {
   </div>
 
   {deliveryOption === 'delivery' && (
-    <div className="space-y-4">
+    <div className="space-y-4 relative overflow-hidden">
       {/* Delivery Map Component */}
-      <DeliveryMap 
-        restaurantPosition={meal.restaurantLocation || [-1.2921, 36.8219]} // Pass restaurant coordinates
-        onDeliveryCalculated={({ fee, time, userPosition }) => {
-          setDeliveryFee(fee);
-          setDeliveryTime(time);
-          setUserLocation(userPosition);
-        }}
-        baseDeliveryFee={50}
-        deliveryRatePerKm={10}
-      />
-
-      {/* Delivery Address */}
-      <div>
-        <label className="block text-gray-700 font-medium mb-2">Delivery Address</label>
-        <input
-          type="text"
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-          placeholder="Enter your delivery address"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+      <div className="relative z-0 overflow-hidden rounded-lg">
+        <DeliveryMap 
+          restaurantPosition={
+            (() => {
+              // Default restaurant position (Nairobi city center)
+              const defaultPosition = { lat: -1.2921, lng: 36.8219 };
+              
+              if (!meal.restaurantLocation) {
+                console.log('No restaurant location found, using default');
+                return defaultPosition;
+              }
+              
+              if (Array.isArray(meal.restaurantLocation)) {
+                console.log('Restaurant location is array:', meal.restaurantLocation);
+                return { lat: meal.restaurantLocation[0], lng: meal.restaurantLocation[1] };
+              }
+              
+              if (meal.restaurantLocation.lat && meal.restaurantLocation.lng) {
+                console.log('Restaurant location is object:', meal.restaurantLocation);
+                return meal.restaurantLocation;
+              }
+              
+              console.log('Invalid restaurant location format, using default');
+              return defaultPosition;
+            })()
+          }
+          onDeliveryCalculated={handleDeliveryCalculated}
+          onAddressUpdate={handleAddressUpdate}
+          onGeocodingStart={handleGeocodingStart}
+          baseDeliveryFee={50}
+          deliveryRatePerKm={10}
         />
       </div>
+
+
+    
     </div>
   )}
 </div>
@@ -527,16 +609,44 @@ const handleMpesaPayment = async () => {
                 {/* Delivery Address (shown only for delivery) */}
                 {deliveryOption === 'delivery' && (
                   <div className="mb-6">
-                    <label className="block text-gray-700 font-medium mb-2">Delivery Address</label>
-                    <input
-                      type="text"
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      placeholder="Enter your delivery address"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                    <label className="block text-gray-700 font-medium mb-2">
+                      Delivery Address
+                      <span className="text-sm text-gray-500 ml-2">
+                        (Click on map or use location button to auto-fill)
+                      </span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                        placeholder="Click on the map to set your delivery address automatically"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
+                        disabled={isGeocoding}
+                      />
+                      {isGeocoding && (
+                        <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                        </div>
+                      )}
+                      {address && !isGeocoding && (
+                        <button
+                          onClick={() => setAddress('')}
+                          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          title="Clear address"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                    {address && (
+                      <p className="text-xs text-green-600 mt-1">
+                        ✓ Address set from map location
+                      </p>
+                    )}
                   </div>
                 )}
+
 
                 {/* Meal Customization Options */}
                 <div className="mb-6">
@@ -598,8 +708,15 @@ const handleMpesaPayment = async () => {
                   </div>
                   {deliveryOption === 'delivery' && (
                     <div className="flex justify-between mb-2">
-                      <span className="text-gray-600">Delivery Fee</span>
-                      <span className="font-medium">Ksh 50.00</span>
+                      <span className="text-gray-600">
+                        Delivery Fee
+                        {deliveryCalculated && distance > 0 && (
+                          <span className="text-xs text-gray-500 block">
+                            ({distance.toFixed(1)} km)
+                          </span>
+                        )}
+                      </span>
+                      <span className="font-medium">Ksh {Math.round(deliveryFee)}</span>
                     </div>
                   )}
                   <div className="flex justify-between mt-4 pt-4 border-t border-gray-200">
@@ -634,9 +751,19 @@ const handleMpesaPayment = async () => {
                           />
                           <button
                             onClick={handleMpesaPayment}
-                            className="mt-3 w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                            disabled={deliveryOption === 'delivery' && (!deliveryCalculated || distance > 20)}
+                            className={`mt-3 w-full py-2 px-4 rounded-lg font-medium transition-colors ${
+                              deliveryOption === 'delivery' && (!deliveryCalculated || distance > 20)
+                                ? 'bg-gray-400 cursor-not-allowed'
+                                : 'bg-green-600 hover:bg-green-700 text-white'
+                            }`}
                           >
-                            Pay with M-Pesa
+                            {deliveryOption === 'delivery' && !deliveryCalculated 
+                              ? 'Set Delivery Location First'
+                              : deliveryOption === 'delivery' && distance > 20
+                              ? 'Distance Too Far'
+                              : 'Pay with M-Pesa'
+                            }
                           </button>
                         </div>
                       </div>
@@ -672,10 +799,20 @@ const handleMpesaPayment = async () => {
                           </div>
                           <button
                             onClick={handleStripePayment}
-                            className="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-medium transition-colors flex items-center justify-center"
+                            disabled={deliveryOption === 'delivery' && (!deliveryCalculated || distance > 20)}
+                            className={`mt-3 w-full py-2 px-4 rounded-lg font-medium transition-colors flex items-center justify-center ${
+                              deliveryOption === 'delivery' && (!deliveryCalculated || distance > 20)
+                                ? 'bg-gray-400 cursor-not-allowed'
+                                : 'bg-blue-600 hover:bg-blue-700 text-white'
+                            }`}
                           >
                             <FiDollarSign className="mr-2" />
-                            Pay with Card
+                            {deliveryOption === 'delivery' && !deliveryCalculated 
+                              ? 'Set Delivery Location First'
+                              : deliveryOption === 'delivery' && distance > 20
+                              ? 'Distance Too Far'
+                              : 'Pay with Card'
+                            }
                           </button>
                         </div>
                       </div>

@@ -9,6 +9,8 @@ export default function Navbar() {
   const { user, token, logout } = useAuth(); // Get auth state and logout function
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+
+
   const handleLogout = () => {
     logout(); // Use the logout function from context
     navigate('/login');

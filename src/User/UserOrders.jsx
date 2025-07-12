@@ -14,7 +14,7 @@ export default function UserOrders() {
 
   const fetchUserOrders = async () => {
     try {
-      const response = await axios.get(`http://roundhouse.proxy.rlwy.net:3000/api/users/${userId}/orders`);
+      const response = await axios.get(`http://localhost:3000/api/users/${userId}/orders`);
       setOrders(response.data);
     } catch (error) {
       console.error('Error fetching user orders:', error);

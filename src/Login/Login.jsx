@@ -20,12 +20,15 @@ export default function Login() {
     setError('');
   
     try {
-      const res = await axios.post("http://192.168.137.1:3000/api/login", {
+      const res = await axios.post("http://localhost:3000/api/login", {
         email,
         password,
       });
   
-      const { token, user, restaurantId, deliveryPersonId } = res.data;
+      const { token, user, restaurantId, deliveryPersonId} = res.data;
+ 
+
+    
   
       // Validate response structure
       if (!token || !user?.email || !user?.role) {
@@ -42,11 +45,11 @@ export default function Login() {
         deliveryPersonId
       });
   
-      console.log('my admin',user.role)
+    
       // Redirect by role
       const redirectPaths = {
         admin: '/admin/dashboard',
-        restaurant_owner: `/restaurant/${restaurantId}/dashboard`,
+        restaurant_owner: `/owner/dashboard`,
         delivery_person: `/delivery/${deliveryPersonId}/dashboard`,
         default: '/'
       };
