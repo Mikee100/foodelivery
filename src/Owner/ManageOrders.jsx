@@ -14,12 +14,38 @@ export default function ManageOrders() {
 
   const testBackendConnection = async () => {
     try {
-      const response = await axios.get('http://localhost:3000/api/restaurants/1');
+      const response = await axios.get('http://localhost:3000/api/health');
       console.log('Backend connection test successful:', response.data);
       setDebugInfo(prev => ({ ...prev, backendConnection: 'Success' }));
     } catch (error) {
       console.error('Backend connection test failed:', error);
       setDebugInfo(prev => ({ ...prev, backendConnection: `Failed: ${error.message}` }));
+    }
+  };
+
+  const testAuthentication = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      alert('No token found. Please log in again.');
+      return;
+    }
+
+    try {
+      // Try to access a protected endpoint
+      const response = await axios.get('http://localhost:3000/api/restaurants/1', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      console.log('Authentication test successful:', response.data);
+      alert('Authentication is working correctly!');
+    } catch (error) {
+      console.error('Authentication test failed:', error.response || error);
+      if (error.response?.status === 401) {
+        alert('Authentication failed: Invalid or expired token');
+      } else if (error.response?.status === 403) {
+        alert('Authentication failed: Insufficient permissions');
+      } else {
+        alert(`Authentication test failed: ${error.response?.data?.error || error.message}`);
+      }
     }
   };
 
@@ -85,13 +111,46 @@ export default function ManageOrders() {
   };
 
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
+    const token = localStorage.getItem('token');
+    const userRole = localStorage.getItem('role');
+    
+    console.log('Update order status debug:', {
+      orderId,
+      newStatus,
+      hasToken: !!token,
+      userRole,
+      tokenPreview: token ? `${token.substring(0, 20)}...` : 'No token'
+    });
+
+    if (!token) {
+      console.error('No authentication token found');
+      alert('Authentication token missing. Please log in again.');
+      return;
+    }
+
     try {
-      await axios.put(`http://localhost:3000/api/orders/${orderId}/status`, { status: newStatus }, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
+      const response = await axios.put(`http://localhost:3000/api/orders/${orderId}/status`, 
+        { status: newStatus }, 
+        {
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      console.log('Order status updated successfully:', response.data);
       fetchOrders();
     } catch (error) {
-      console.error('Error updating order status:', error);
+      console.error('Error updating order status:', error.response || error);
+      
+      if (error.response?.status === 403) {
+        alert('Access denied. You may not have permission to update orders or your session has expired. Please log in again.');
+      } else if (error.response?.status === 401) {
+        alert('Authentication failed. Please log in again.');
+      } else {
+        alert(`Error updating order status: ${error.response?.data?.error || error.message}`);
+      }
     }
   };
 
@@ -126,6 +185,12 @@ export default function ManageOrders() {
             className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
           >
             Test Backend Connection
+          </button>
+          <button 
+            onClick={testAuthentication}
+            className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded"
+          >
+            Test Authentication
           </button>
         </div>
         <div className="bg-gray-100 p-4 rounded">

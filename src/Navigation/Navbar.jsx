@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaBars } from 'react-icons/fa';
 import SearchBar from './SearchBar';
-import { useAuth } from '../AuthContext/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Navbar() {
   const navigate = useNavigate();
-  const { user, token, logout } = useAuth(); // Get auth state and logout function
+  const { user, isAuthenticated, logout } = useAuth(); // Get auth state and logout function
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
 
@@ -41,12 +41,19 @@ export default function Navbar() {
               </Link>
             </div>
             <div className="flex items-center space-x-4">
-              {token && user?.role === 'user' && <SearchBar />}
-              {token ? (
+              {isAuthenticated() && user?.role === 'user' && <SearchBar />}
+              {isAuthenticated() ? (
                 <div className="flex items-center space-x-4">
-                  <span className="text-gray-700 hidden sm:inline">
-                    Welcome, {user?.name || 'User'}
-                  </span>
+                  <div className="text-right hidden sm:block">
+                    <span className="text-gray-700 font-medium">
+                      Welcome back, {user?.username || user?.name || 'User'}!
+                    </span>
+                    <div className="text-xs text-gray-500">
+                      {user?.role === 'admin' ? 'Administrator' : 
+                       user?.role === 'restaurant_owner' ? 'Restaurant Owner' :
+                       user?.role === 'delivery_person' ? 'Delivery Person' : 'Customer'}
+                    </div>
+                  </div>
                   <button
                     onClick={handleLogout}
                     className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors duration-200"
@@ -76,7 +83,7 @@ export default function Navbar() {
       </nav>
 
       {/* Sidebar - only shown when logged in */}
-      {token && (
+      {isAuthenticated() && (
         <div
           className={`fixed top-0 left-0 w-64 bg-white shadow-lg h-full z-40 transform ${
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'

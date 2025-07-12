@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import './App.css';
 import MainPage from './User/MainPage';
 import RestaurantCreation from './Admin/RestaurantCreation';
@@ -13,7 +13,6 @@ import OwnerDashboard from './Owner/OwnerDashboard';
 import DeliveryDashboard from './Delivery/DeliveryDashboard';
 import UserDashboard from './User/UserDashboard';
 import SignUp from './Login/SignUp';
-import Navbar from './Navigation/Navbar';
 import ModifyMeal from './Owner/ModifyMeal';
 import SearchResults from './Navigation/SearchResults ';
 
@@ -28,43 +27,136 @@ import DeliveryPersonsPage from './Owner/DeliveryPersonsPage';
 import ProcessedOrdersPage from './Owner/ProcessedOrdersPage';
 import CategoriesPage from './Owner/CategoriesPage';
 
-const PrivateRoute = ({ children, role }) => {
-  const userRole = localStorage.getItem('role');
-  return userRole === role ? children : <Navigate to="/login" />;
-};
-
-
+// Import new auth components
+import { AuthProvider } from './contexts/AuthContext';
+import { PrivateRoute, PublicRoute } from './components/PrivateRoute';
+import UserLayout from './UserLayout';
+import OwnerLayout from './Owner/OwnerLayout';
 
 function App() {
   return (
-    <BrowserRouter>
-     <Navbar />
-      <Routes>
-        <Route path="/" element={<MainPage />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<SignUp />} />
-        <Route path="/admin/restaurantcreation" element={<PrivateRoute role="admin"><RestaurantCreation /></PrivateRoute>} />
-        <Route path="/restaurant/:id" element={<RestaurantDetails />} />
-        <Route path="/restaurant/:id/addmeal" element={<PrivateRoute role="restaurant_owner"><AddMeal /></PrivateRoute>} />
-        <Route path="/meal/:id" element={<MealDetails />} />
-        <Route path="/modify-meal/:mealId" element={<ModifyMeal />} />
-        <Route path="/order/:orderNumber" element={<OrderStatus />} />
-        <Route path="/order-confirmation/:orderId" element={<OrderConfirmation />} />
-        <Route path="/admin/restaurant/:restaurantId/orders" element={<PrivateRoute role="restaurant_owner"><ManageOrders /></PrivateRoute>} />
-        <Route path="/admin/dashboard" element={<AdminDashboard />} />
-        <Route path="/owner/dashboard" element={<OwnerDashboard />} />
-        <Route path="/owner/meals" element={<PrivateRoute role="restaurant_owner"><MealsPage /></PrivateRoute>} />
-        <Route path="/owner/orders" element={<PrivateRoute role="restaurant_owner"><OrdersPage /></PrivateRoute>} />
-        <Route path="/owner/delivery-persons" element={<PrivateRoute role="restaurant_owner"><DeliveryPersonsPage /></PrivateRoute>} />
-        <Route path="/owner/processed-orders" element={<PrivateRoute role="restaurant_owner"><ProcessedOrdersPage /></PrivateRoute>} />
-        <Route path="/owner/categories" element={<PrivateRoute role="restaurant_owner"><CategoriesPage /></PrivateRoute>} />
-        <Route path="/delivery/dashboard" element={<DeliveryDashboard />} />
-        <Route path="/user/dashboard" element={<UserDashboard />} />
-        <Route path="/search" element={<SearchResults />} />
-        <Route path="/profile" element={<PrivateRoute role="user"><UserDetails /></PrivateRoute>} /> 
-        <Route path="/orders" element={<PrivateRoute role="user"><UserOrders /></PrivateRoute>} /> 
-      </Routes>
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/login" element={
+            <PublicRoute>
+              <Login />
+            </PublicRoute>
+          } />
+          <Route path="/signup" element={
+            <PublicRoute>
+              <SignUp />
+            </PublicRoute>
+          } />
+
+          {/* User Routes - With Navbar */}
+          <Route path="/" element={
+            <UserLayout>
+              <MainPage />
+            </UserLayout>
+          } />
+          <Route path="/restaurant/:id" element={
+            <UserLayout>
+              <RestaurantDetails />
+            </UserLayout>
+          } />
+          <Route path="/meal/:id" element={
+            <UserLayout>
+              <MealDetails />
+            </UserLayout>
+          } />
+          <Route path="/order/:orderNumber" element={
+            <UserLayout>
+              <OrderStatus />
+            </UserLayout>
+          } />
+          <Route path="/order-confirmation/:orderId" element={
+            <UserLayout>
+              <OrderConfirmation />
+            </UserLayout>
+          } />
+          <Route path="/search" element={
+            <UserLayout>
+              <SearchResults />
+            </UserLayout>
+          } />
+
+          {/* Protected User Routes */}
+          <Route path="/user/dashboard" element={
+            <PrivateRoute roles={['user']}>
+              <UserLayout>
+                <UserDashboard />
+              </UserLayout>
+            </PrivateRoute>
+          } />
+          <Route path="/profile" element={
+            <PrivateRoute roles={['user']}>
+              <UserLayout>
+                <UserDetails />
+              </UserLayout>
+            </PrivateRoute>
+          } /> 
+          <Route path="/orders" element={
+            <PrivateRoute roles={['user']}>
+              <UserLayout>
+                <UserOrders />
+              </UserLayout>
+            </PrivateRoute>
+          } /> 
+
+          {/* Admin Routes - No Navbar */}
+          <Route path="/admin/restaurantcreation" element={
+            <PrivateRoute roles={['admin']}>
+              <RestaurantCreation />
+            </PrivateRoute>
+          } />
+          <Route path="/admin/dashboard" element={
+            <PrivateRoute roles={['admin']}>
+              <AdminDashboard />
+            </PrivateRoute>
+          } />
+
+          {/* Owner Routes - With OwnerLayout */}
+          <Route path="/owner" element={
+            <PrivateRoute roles={['restaurant_owner']}>
+              <OwnerLayout />
+            </PrivateRoute>
+          }>
+            <Route path="dashboard" element={<OwnerDashboard />} />
+            <Route path="meals" element={<MealsPage />} />
+            <Route path="orders" element={<OrdersPage />} />
+            <Route path="delivery-persons" element={<DeliveryPersonsPage />} />
+            <Route path="processed-orders" element={<ProcessedOrdersPage />} />
+            <Route path="categories" element={<CategoriesPage />} />
+          </Route>
+
+          {/* Legacy Owner Routes - For backward compatibility */}
+          <Route path="/restaurant/:id/addmeal" element={
+            <PrivateRoute roles={['restaurant_owner']}>
+              <AddMeal />
+            </PrivateRoute>
+          } />
+          <Route path="/modify-meal/:mealId" element={
+            <PrivateRoute roles={['restaurant_owner']}>
+              <ModifyMeal />
+            </PrivateRoute>
+          } />
+          <Route path="/admin/restaurant/:restaurantId/orders" element={
+            <PrivateRoute roles={['restaurant_owner']}>
+              <ManageOrders />
+            </PrivateRoute>
+          } />
+
+          {/* Delivery Routes - No Navbar */}
+          <Route path="/delivery/dashboard" element={
+            <PrivateRoute roles={['delivery_person']}>
+              <DeliveryDashboard />
+            </PrivateRoute>
+          } />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 

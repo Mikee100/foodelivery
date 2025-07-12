@@ -1,167 +1,178 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
-import { FaUser, FaEnvelope, FaLock, FaPhone, FaMapMarkerAlt } from 'react-icons/fa';
-import 'leaflet/dist/leaflet.css';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function SignUp() {
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [phone, setPhone] = useState('');
-  const [county, setCounty] = useState('');
-  const [location, setLocation] = useState({ lat: 0, lng: 0 });
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    role: 'user'
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const { signup, error, clearError } = useAuth();
   const navigate = useNavigate();
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    try {
-      await axios.post('http://localhost:3000/api/signup', {
-        username,
-        email,
-        password,
-        phone,
-        county,
-        location,
-      });
-      setUsername('');
-      setEmail('');
-      setPassword('');
-      setPhone('');
-      setCounty('');
-      setLocation({ lat: 0, lng: 0 });
-      navigate('/login');
-    } catch (error) {
-      console.error('There was an error signing up!', error);
+    setIsLoading(true);
+    clearError();
+
+    // Validate passwords match
+    if (formData.password !== formData.confirmPassword) {
+      setFormData(prev => ({ ...prev, confirmPassword: '' }));
+      return;
     }
+
+    const result = await signup(formData);
+    
+    if (result.success) {
+      // Redirect to login after successful signup
+      navigate('/login', { 
+        state: { message: 'Account created successfully! Please log in.' }
+      });
+    }
+    
+    setIsLoading(false);
   };
 
-  function LocationMarker() {
-    const map = useMapEvents({
-      click(e) {
-        setLocation(e.latlng);
-        map.flyTo(e.latlng, map.getZoom());
-      },
-    });
-    return location === null ? null : <Marker position={location}></Marker>;
-  }
-
   return (
-    <div className="min-h-screen bg-gray-100 p-6 flex flex-col mt-16 items-center justify-center">
-      <h1 className="text-5xl font-extrabold text-gray-800 mb-12 tracking-wide">Create Your Account</h1>
-      <div className="bg-white p-10 rounded-xl shadow-xl w-full max-w-lg transition-all transform hover:scale-105 duration-300">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="relative">
-            <label className="block text-gray-600 text-sm font-semibold mb-2" htmlFor="username">
-              Username
-            </label>
-            <div className="relative">
-              <FaUser className="absolute top-3 left-3 text-gray-400" />
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
+        <div>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+            Create your account
+          </h2>
+        </div>
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                Full Name
+              </label>
               <input
+                id="name"
+                name="name"
                 type="text"
-                id="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="pl-10 pr-4 py-3 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 shadow-sm text-gray-800 transition-all duration-150 ease-in-out"
-                placeholder="Enter your username"
                 required
+                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="Enter your full name"
+                value={formData.name}
+                onChange={handleChange}
               />
             </div>
-          </div>
-
-          <div className="relative">
-            <label className="block text-gray-600 text-sm font-semibold mb-2" htmlFor="email">
-              Email
-            </label>
-            <div className="relative">
-              <FaEnvelope className="absolute top-3 left-3 text-gray-400" />
+            
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                Email address
+              </label>
               <input
-                type="email"
                 id="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="pl-10 pr-4 py-3 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 shadow-sm text-gray-800 transition-all duration-150 ease-in-out"
-                placeholder="Enter your email address"
+                name="email"
+                type="email"
+                autoComplete="email"
                 required
+                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="Enter your email"
+                value={formData.email}
+                onChange={handleChange}
               />
             </div>
-          </div>
 
-          <div className="relative">
-            <label className="block text-gray-600 text-sm font-semibold mb-2" htmlFor="password">
-              Password
-            </label>
-            <div className="relative">
-              <FaLock className="absolute top-3 left-3 text-gray-400" />
+            <div>
+              <label htmlFor="role" className="block text-sm font-medium text-gray-700">
+                Account Type
+              </label>
+              <select
+                id="role"
+                name="role"
+                required
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                value={formData.role}
+                onChange={handleChange}
+              >
+                <option value="user">Customer</option>
+                <option value="restaurant_owner">Restaurant Owner</option>
+                <option value="delivery_person">Delivery Person</option>
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                Password
+              </label>
               <input
-                type="password"
                 id="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="pl-10 pr-4 py-3 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 shadow-sm text-gray-800 transition-all duration-150 ease-in-out"
-                placeholder="Create a password"
+                name="password"
+                type="password"
+                autoComplete="new-password"
                 required
+                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="Enter your password"
+                value={formData.password}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                Confirm Password
+              </label>
+              <input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                autoComplete="new-password"
+                required
+                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="Confirm your password"
+                value={formData.confirmPassword}
+                onChange={handleChange}
               />
             </div>
           </div>
 
-          <div className="relative">
-            <label className="block text-gray-600 text-sm font-semibold mb-2" htmlFor="phone">
-              Phone Number
-            </label>
-            <div className="relative">
-              <FaPhone className="absolute top-3 left-3 text-gray-400" />
-              <input
-                type="tel"
-                id="phone"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="pl-10 pr-4 py-3 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 shadow-sm text-gray-800 transition-all duration-150 ease-in-out"
-                placeholder="Enter your phone number"
-                required
-              />
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+              {error}
             </div>
-          </div>
-
-          <div className="relative">
-            <label className="block text-gray-600 text-sm font-semibold mb-2" htmlFor="county">
-              County
-            </label>
-            <div className="relative">
-              <FaMapMarkerAlt className="absolute top-3 left-3 text-gray-400" />
-              <input
-                type="text"
-                id="county"
-                value={county}
-                onChange={(e) => setCounty(e.target.value)}
-                className="pl-10 pr-4 py-3 w-full border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 shadow-sm text-gray-800 transition-all duration-150 ease-in-out"
-                placeholder="Enter your county"
-                required
-              />
-            </div>
-          </div>
+          )}
 
           <div>
-            <label className="block text-gray-600 text-sm font-semibold mb-2">Location</label>
-            <MapContainer
-              center={[0, 0]}
-              zoom={2}
-              style={{ height: '300px', width: '100%' }}
-              className="rounded-lg shadow-md border border-gray-300"
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-              <LocationMarker />
-            </MapContainer>
-            <p className="text-xs text-gray-500 mt-2 italic">Click on the map to set your location</p>
+              {isLoading ? (
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              ) : (
+                'Create Account'
+              )}
+            </button>
           </div>
 
-          <button
-            type="submit"
-            className="mt-8 w-full py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold rounded-lg shadow-lg transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-2"
-          >
-            Sign Up
-          </button>
+          <div className="text-center">
+            <p className="text-sm text-gray-600">
+              Already have an account?{' '}
+              <button
+                type="button"
+                onClick={() => navigate('/login')}
+                className="font-medium text-blue-600 hover:text-blue-500"
+              >
+                Sign in
+              </button>
+            </p>
+          </div>
         </form>
       </div>
     </div>
